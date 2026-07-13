@@ -27,14 +27,38 @@ class NutriCareProApp extends StatelessWidget {
 class Patient {
   final String nom;
   final String email;
+  final String pays;
+  final String indicatif;
+  final String telephone;
   final String objectif;
   final String statut;
+  final bool notificationsAutorisees;
 
   const Patient({
     required this.nom,
     required this.email,
+    required this.pays,
+    required this.indicatif,
+    required this.telephone,
     required this.objectif,
     required this.statut,
+    required this.notificationsAutorisees,
+  });
+
+  String get telephoneComplet {
+    return '$indicatif $telephone';
+  }
+}
+
+class PaysTelephone {
+  final String nom;
+  final String indicatif;
+  final String exemple;
+
+  const PaysTelephone({
+    required this.nom,
+    required this.indicatif,
+    required this.exemple,
   });
 }
 
@@ -49,27 +73,43 @@ class _TableauDeBordViewState extends State<TableauDeBordView> {
   final List<Patient> patients = [
     const Patient(
       nom: 'Mariam Ali',
-      email: 'mariam.ali8204@gmail.com',
+      email: 'mariam@example.com',
+      pays: 'Liban',
+      indicatif: '+961',
+      telephone: '71 123 456',
       objectif: 'Perte de poids',
       statut: 'Actif',
+      notificationsAutorisees: true,
     ),
     const Patient(
-      nom: 'Sally Homsi',
-      email: 'sallyhomsi17@gmail.com',
+      nom: 'Sally Ahmad',
+      email: 'sally@example.com',
+      pays: 'France',
+      indicatif: '+33',
+      telephone: '6 12 34 56 78',
       objectif: 'Plan sportif',
       statut: 'Actif',
+      notificationsAutorisees: true,
     ),
     const Patient(
       nom: 'Lina Khalil',
-      email: 'lina655@icloud.com',
+      email: 'lina@example.com',
+      pays: 'Liban',
+      indicatif: '+961',
+      telephone: '76 987 654',
       objectif: 'Diabète',
       statut: 'Suivi',
+      notificationsAutorisees: false,
     ),
     const Patient(
       nom: 'Nour Hassan',
-      email: 'nour.hassan4@gmail.com',
+      email: 'nour@example.com',
+      pays: 'Jordanie',
+      indicatif: '+962',
+      telephone: '7 9012 3456',
       objectif: 'Nutrition équilibrée',
       statut: 'Actif',
+      notificationsAutorisees: true,
     ),
   ];
 
@@ -97,6 +137,8 @@ class _TableauDeBordViewState extends State<TableauDeBordView> {
   @override
   Widget build(BuildContext context) {
     final int plansActifs = patients.length * 2;
+    final int notificationsActives =
+        patients.where((patient) => patient.notificationsAutorisees).length;
 
     return Scaffold(
       appBar: AppBar(
@@ -157,21 +199,21 @@ class _TableauDeBordViewState extends State<TableauDeBordView> {
 
             const SizedBox(height: 12),
 
-            const Row(
+            Row(
               children: [
-                Expanded(
+                const Expanded(
                   child: CarteStatistique(
                     titre: 'Rendez-vous',
                     valeur: '5',
                     icone: Icons.calendar_month_outlined,
                   ),
                 ),
-                SizedBox(width: 12),
+                const SizedBox(width: 12),
                 Expanded(
                   child: CarteStatistique(
-                    titre: 'Alertes',
-                    valeur: '3',
-                    icone: Icons.warning_amber_outlined,
+                    titre: 'Notifications',
+                    valeur: notificationsActives.toString(),
+                    icone: Icons.notifications_active_outlined,
                   ),
                 ),
               ],
@@ -230,10 +272,82 @@ class AjouterPatientView extends StatefulWidget {
 class _AjouterPatientViewState extends State<AjouterPatientView> {
   final TextEditingController nomController = TextEditingController();
   final TextEditingController emailController = TextEditingController();
+  final TextEditingController telephoneController = TextEditingController();
   final TextEditingController autreObjectifController = TextEditingController();
+
+  final List<PaysTelephone> paysDisponibles = const [
+    PaysTelephone(
+      nom: 'Liban',
+      indicatif: '+961',
+      exemple: '71 123 456',
+    ),
+    PaysTelephone(
+      nom: 'France',
+      indicatif: '+33',
+      exemple: '6 12 34 56 78',
+    ),
+    PaysTelephone(
+      nom: 'Égypte',
+      indicatif: '+20',
+      exemple: '100 123 4567',
+    ),
+    PaysTelephone(
+      nom: 'Jordanie',
+      indicatif: '+962',
+      exemple: '7 9012 3456',
+    ),
+    PaysTelephone(
+      nom: 'Syrie',
+      indicatif: '+963',
+      exemple: '944 123 456',
+    ),
+    PaysTelephone(
+      nom: 'Arabie saoudite',
+      indicatif: '+966',
+      exemple: '50 123 4567',
+    ),
+    PaysTelephone(
+      nom: 'Émirats arabes unis',
+      indicatif: '+971',
+      exemple: '50 123 4567',
+    ),
+    PaysTelephone(
+      nom: 'Qatar',
+      indicatif: '+974',
+      exemple: '3312 3456',
+    ),
+    PaysTelephone(
+      nom: 'Koweït',
+      indicatif: '+965',
+      exemple: '500 12345',
+    ),
+    PaysTelephone(
+      nom: 'Turquie',
+      indicatif: '+90',
+      exemple: '532 123 45 67',
+    ),
+    PaysTelephone(
+      nom: 'États-Unis',
+      indicatif: '+1',
+      exemple: '202 555 0123',
+    ),
+    PaysTelephone(
+      nom: 'Canada',
+      indicatif: '+1',
+      exemple: '416 555 0123',
+    ),
+    PaysTelephone(
+      nom: 'Royaume-Uni',
+      indicatif: '+44',
+      exemple: '7400 123456',
+    ),
+  ];
+
+  late PaysTelephone paysSelectionne;
 
   String objectifSelectionne = 'Perte de poids';
   String statutSelectionne = 'Actif';
+  bool notificationsAutorisees = true;
 
   final List<String> objectifsNutritionnels = const [
     'Perte de poids',
@@ -254,15 +368,25 @@ class _AjouterPatientViewState extends State<AjouterPatientView> {
     'En pause',
   ];
 
+  @override
+  void initState() {
+    super.initState();
+    paysSelectionne = paysDisponibles.first;
+  }
+
   void enregistrerPatient() {
     final String nom = nomController.text.trim();
     final String email = emailController.text.trim();
+    final String telephone = telephoneController.text.trim();
 
     final String objectif = objectifSelectionne == 'Autre'
         ? autreObjectifController.text.trim()
         : objectifSelectionne;
 
-    if (nom.isEmpty || email.isEmpty || objectif.isEmpty) {
+    if (nom.isEmpty ||
+        email.isEmpty ||
+        telephone.isEmpty ||
+        objectif.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Veuillez remplir tous les champs'),
@@ -271,7 +395,7 @@ class _AjouterPatientViewState extends State<AjouterPatientView> {
       return;
     }
 
-    if (!email.contains('@')) {
+    if (!email.contains('@') || !email.contains('.')) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Veuillez saisir une adresse e-mail valide'),
@@ -280,11 +404,27 @@ class _AjouterPatientViewState extends State<AjouterPatientView> {
       return;
     }
 
+    final String telephoneSansEspaces =
+        telephone.replaceAll(RegExp(r'[^0-9]'), '');
+
+    if (telephoneSansEspaces.length < 6) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Veuillez saisir un numéro de téléphone valide'),
+        ),
+      );
+      return;
+    }
+
     final Patient nouveauPatient = Patient(
       nom: nom,
       email: email,
+      pays: paysSelectionne.nom,
+      indicatif: paysSelectionne.indicatif,
+      telephone: telephone,
       objectif: objectif,
       statut: statutSelectionne,
+      notificationsAutorisees: notificationsAutorisees,
     );
 
     Navigator.pop(context, nouveauPatient);
@@ -294,6 +434,7 @@ class _AjouterPatientViewState extends State<AjouterPatientView> {
   void dispose() {
     nomController.dispose();
     emailController.dispose();
+    telephoneController.dispose();
     autreObjectifController.dispose();
     super.dispose();
   }
@@ -344,6 +485,47 @@ class _AjouterPatientViewState extends State<AjouterPatientView> {
               label: 'Adresse e-mail',
               icone: Icons.email_outlined,
               typeClavier: TextInputType.emailAddress,
+            ),
+
+            const SizedBox(height: 16),
+
+            DropdownButtonFormField<PaysTelephone>(
+              value: paysSelectionne,
+              decoration: InputDecoration(
+                labelText: 'Pays',
+                prefixIcon: const Icon(Icons.public_outlined),
+                filled: true,
+                fillColor: Colors.white,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(16),
+                  borderSide: BorderSide.none,
+                ),
+              ),
+              items: paysDisponibles.map((pays) {
+                return DropdownMenuItem(
+                  value: pays,
+                  child: Text('${pays.nom} (${pays.indicatif})'),
+                );
+              }).toList(),
+              onChanged: (value) {
+                if (value != null) {
+                  setState(() {
+                    paysSelectionne = value;
+                    telephoneController.clear();
+                  });
+                }
+              },
+            ),
+
+            const SizedBox(height: 16),
+
+            ChampTexteProfessionnel(
+              controller: telephoneController,
+              label: 'Numéro de téléphone',
+              icone: Icons.phone_outlined,
+              typeClavier: TextInputType.phone,
+              texteAide:
+                  'Format attendu : ${paysSelectionne.indicatif} ${paysSelectionne.exemple}',
             ),
 
             const SizedBox(height: 16),
@@ -413,6 +595,17 @@ class _AjouterPatientViewState extends State<AjouterPatientView> {
               },
             ),
 
+            const SizedBox(height: 16),
+
+            CarteNotification(
+              notificationsAutorisees: notificationsAutorisees,
+              onChanged: (value) {
+                setState(() {
+                  notificationsAutorisees = value;
+                });
+              },
+            ),
+
             const SizedBox(height: 28),
 
             SizedBox(
@@ -442,6 +635,7 @@ class ChampTexteProfessionnel extends StatelessWidget {
   final String label;
   final IconData icone;
   final TextInputType typeClavier;
+  final String? texteAide;
 
   const ChampTexteProfessionnel({
     super.key,
@@ -449,6 +643,7 @@ class ChampTexteProfessionnel extends StatelessWidget {
     required this.label,
     required this.icone,
     this.typeClavier = TextInputType.text,
+    this.texteAide,
   });
 
   @override
@@ -458,12 +653,49 @@ class ChampTexteProfessionnel extends StatelessWidget {
       keyboardType: typeClavier,
       decoration: InputDecoration(
         labelText: label,
+        helperText: texteAide,
         prefixIcon: Icon(icone),
         filled: true,
         fillColor: Colors.white,
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(16),
           borderSide: BorderSide.none,
+        ),
+      ),
+    );
+  }
+}
+
+class CarteNotification extends StatelessWidget {
+  final bool notificationsAutorisees;
+  final ValueChanged<bool> onChanged;
+
+  const CarteNotification({
+    super.key,
+    required this.notificationsAutorisees,
+    required this.onChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      elevation: 0,
+      color: Colors.white,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: SwitchListTile(
+        value: notificationsAutorisees,
+        onChanged: onChanged,
+        secondary: const Icon(Icons.notifications_active_outlined),
+        title: const Text(
+          'Notifications autorisées',
+          style: TextStyle(
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        subtitle: const Text(
+          'Autoriser l’envoi de rappels et de suivis au patient',
         ),
       ),
     );
@@ -552,6 +784,14 @@ class CartePatient extends StatelessWidget {
     }
   }
 
+  String texteNotification() {
+    if (patient.notificationsAutorisees) {
+      return 'Notifications : Oui';
+    } else {
+      return 'Notifications : Non';
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Card(
@@ -560,44 +800,104 @@ class CartePatient extends StatelessWidget {
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(18),
       ),
-      child: ListTile(
-        contentPadding: const EdgeInsets.symmetric(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(
           horizontal: 16,
-          vertical: 10,
+          vertical: 14,
         ),
-        leading: const CircleAvatar(
-          backgroundColor: Color(0xFFE0F2EE),
-          child: Icon(
-            Icons.person_outline,
-            color: Color(0xFF0E7C66),
-          ),
-        ),
-        title: Text(
-          patient.nom,
-          style: const TextStyle(
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        subtitle: Text(
-          '${patient.email}\nObjectif : ${patient.objectif}',
-        ),
-        isThreeLine: true,
-        trailing: Container(
-          padding: const EdgeInsets.symmetric(
-            horizontal: 10,
-            vertical: 6,
-          ),
-          decoration: BoxDecoration(
-            color: couleurStatut(patient.statut),
-            borderRadius: BorderRadius.circular(20),
-          ),
-          child: Text(
-            patient.statut,
-            style: TextStyle(
-              color: couleurTexteStatut(patient.statut),
-              fontWeight: FontWeight.w600,
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const CircleAvatar(
+              backgroundColor: Color(0xFFE0F2EE),
+              child: Icon(
+                Icons.person_outline,
+                color: Color(0xFF0E7C66),
+              ),
             ),
-          ),
+
+            const SizedBox(width: 14),
+
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    patient.nom,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16,
+                    ),
+                  ),
+
+                  const SizedBox(height: 4),
+
+                  Text(
+                    patient.email,
+                    style: const TextStyle(
+                      color: Colors.black87,
+                    ),
+                  ),
+
+                  const SizedBox(height: 4),
+
+                  Text(
+                    'Téléphone : ${patient.telephoneComplet}',
+                    style: const TextStyle(
+                      color: Colors.black54,
+                    ),
+                  ),
+
+                  const SizedBox(height: 4),
+
+                  Text(
+                    'Pays : ${patient.pays}',
+                    style: const TextStyle(
+                      color: Colors.black54,
+                    ),
+                  ),
+
+                  const SizedBox(height: 4),
+
+                  Text(
+                    'Objectif : ${patient.objectif}',
+                    style: const TextStyle(
+                      color: Colors.black54,
+                    ),
+                  ),
+
+                  const SizedBox(height: 4),
+
+                  Text(
+                    texteNotification(),
+                    style: const TextStyle(
+                      color: Colors.black54,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+            const SizedBox(width: 8),
+
+            Container(
+              padding: const EdgeInsets.symmetric(
+                horizontal: 10,
+                vertical: 6,
+              ),
+              decoration: BoxDecoration(
+                color: couleurStatut(patient.statut),
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: Text(
+                patient.statut,
+                style: TextStyle(
+                  color: couleurTexteStatut(patient.statut),
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );
