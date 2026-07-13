@@ -62,6 +62,16 @@ class PaysTelephone {
   });
 }
 
+class ResultatDossierPatient {
+  final Patient? patientModifie;
+  final bool patientSupprime;
+
+  const ResultatDossierPatient({
+    this.patientModifie,
+    this.patientSupprime = false,
+  });
+}
+
 class TableauDeBordView extends StatefulWidget {
   const TableauDeBordView({super.key});
 
@@ -114,40 +124,79 @@ class _TableauDeBordViewState extends State<TableauDeBordView> {
   ];
 
   Future<void> ouvrirEcranAjoutPatient() async {
-    final Patient? nouveauPatient = await Navigator.push(
+    final Patient? nouveauPatient = await Navigator.push<Patient>(
       context,
       MaterialPageRoute(
         builder: (context) => const AjouterPatientView(),
       ),
     );
 
-    if (nouveauPatient != null) {
+    if (nouveauPatient == null) {
+      return;
+    }
+
+    setState(() {
+      patients.add(nouveauPatient);
+    });
+
+    if (!mounted) {
+      return;
+    }
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Patient ajouté avec succès'),
+      ),
+    );
+  }
+
+  Future<void> ouvrirDossierPatient(int index) async {
+    final Patient patient = patients[index];
+
+    final ResultatDossierPatient? resultat =
+        await Navigator.push<ResultatDossierPatient>(
+      context,
+      MaterialPageRoute(
+        builder: (context) => DossierPatientView(
+          patient: patient,
+        ),
+      ),
+    );
+
+    if (resultat == null || !mounted) {
+      return;
+    }
+
+    if (resultat.patientSupprime) {
       setState(() {
-        patients.add(nouveauPatient);
+        patients.removeAt(index);
       });
 
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Patient ajouté avec succès'),
+          content: Text('Patient supprimé avec succès'),
         ),
       );
-    }
-  }
 
-  void ouvrirDossierPatient(Patient patient) {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => DossierPatientView(patient: patient),
-      ),
-    );
+      return;
+    }
+
+    if (resultat.patientModifie != null) {
+      setState(() {
+        patients[index] = resultat.patientModifie!;
+      });
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     final int plansActifs = patients.length * 2;
-    final int notificationsActives =
-        patients.where((patient) => patient.notificationsAutorisees).length;
+
+    final int notificationsActives = patients
+        .where(
+          (patient) => patient.notificationsAutorisees,
+        )
+        .length;
 
     return Scaffold(
       appBar: AppBar(
@@ -176,9 +225,7 @@ class _TableauDeBordViewState extends State<TableauDeBordView> {
                 fontWeight: FontWeight.bold,
               ),
             ),
-
             const SizedBox(height: 6),
-
             const Text(
               'Suivi professionnel des patients et des plans nutritionnels',
               style: TextStyle(
@@ -186,9 +233,7 @@ class _TableauDeBordViewState extends State<TableauDeBordView> {
                 color: Colors.black54,
               ),
             ),
-
             const SizedBox(height: 22),
-
             Row(
               children: [
                 Expanded(
@@ -208,9 +253,7 @@ class _TableauDeBordViewState extends State<TableauDeBordView> {
                 ),
               ],
             ),
-
             const SizedBox(height: 12),
-
             Row(
               children: [
                 const Expanded(
@@ -230,9 +273,7 @@ class _TableauDeBordViewState extends State<TableauDeBordView> {
                 ),
               ],
             ),
-
             const SizedBox(height: 28),
-
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
@@ -249,25 +290,28 @@ class _TableauDeBordViewState extends State<TableauDeBordView> {
                 ),
               ],
             ),
-
             const SizedBox(height: 10),
+            if (patients.isEmpty)
+              const CarteListePatientsVide()
+            else
+              ListView.separated(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                itemCount: patients.length,
+                separatorBuilder: (context, index) {
+                  return const SizedBox(height: 12);
+                },
+                itemBuilder: (context, index) {
+                  final Patient patient = patients[index];
 
-            ListView.separated(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              itemCount: patients.length,
-              separatorBuilder: (context, index) => const SizedBox(height: 12),
-              itemBuilder: (context, index) {
-                final patient = patients[index];
-
-                return CartePatient(
-                  patient: patient,
-                  onTap: () {
-                    ouvrirDossierPatient(patient);
-                  },
-                );
-              },
-            ),
+                  return CartePatient(
+                    patient: patient,
+                    onTap: () {
+                      ouvrirDossierPatient(index);
+                    },
+                  );
+                },
+              ),
           ],
         ),
       ),
@@ -280,7 +324,7 @@ class _TableauDeBordViewState extends State<TableauDeBordView> {
   }
 }
 
-class DossierPatientView extends StatelessWidget {
+class DossierPatientView extends StatefulWidget {
   final Patient patient;
 
   const DossierPatientView({
@@ -288,12 +332,26 @@ class DossierPatientView extends StatelessWidget {
     required this.patient,
   });
 
+  @override
+  State<DossierPatientView> createState() => _DossierPatientViewState();
+}
+
+class _DossierPatientViewState extends State<DossierPatientView> {
+  late Patient patientActuel;
+  bool patientAEteModifie = false;
+
+  @override
+  void initState() {
+    super.initState();
+    patientActuel = widget.patient;
+  }
+
   String texteNotification() {
-    if (patient.notificationsAutorisees) {
+    if (patientActuel.notificationsAutorisees) {
       return 'Oui, le patient accepte les rappels et les suivis.';
-    } else {
-      return 'Non, le patient ne souhaite pas recevoir de notifications.';
     }
+
+    return 'Non, le patient ne souhaite pas recevoir de notifications.';
   }
 
   Color couleurStatut(String statut) {
@@ -316,277 +374,255 @@ class DossierPatientView extends StatelessWidget {
     }
   }
 
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Dossier patient'),
-      ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(18),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            CarteEntetePatient(patient: patient),
-
-            const SizedBox(height: 22),
-
-            const Text(
-              'Informations personnelles',
-              style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-
-            const SizedBox(height: 12),
-
-            CarteInformation(
-              icone: Icons.person_outline,
-              titre: 'Nom complet',
-              valeur: patient.nom,
-            ),
-
-            CarteInformation(
-              icone: Icons.email_outlined,
-              titre: 'Adresse e-mail',
-              valeur: patient.email,
-            ),
-
-            CarteInformation(
-              icone: Icons.phone_outlined,
-              titre: 'Téléphone',
-              valeur: patient.telephoneComplet,
-            ),
-
-            CarteInformation(
-              icone: Icons.public_outlined,
-              titre: 'Pays',
-              valeur: patient.pays,
-            ),
-
-            const SizedBox(height: 22),
-
-            const Text(
-              'Suivi nutritionnel',
-              style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-
-            const SizedBox(height: 12),
-
-            CarteInformation(
-              icone: Icons.flag_outlined,
-              titre: 'Objectif nutritionnel',
-              valeur: patient.objectif,
-            ),
-
-            Card(
-              elevation: 0,
-              color: Colors.white,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16),
-              ),
-              child: ListTile(
-                leading: const Icon(Icons.check_circle_outline),
-                title: const Text('Statut du patient'),
-                subtitle: Text(patient.statut),
-                trailing: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 10,
-                    vertical: 6,
-                  ),
-                  decoration: BoxDecoration(
-                    color: couleurStatut(patient.statut),
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: Text(
-                    patient.statut,
-                    style: TextStyle(
-                      color: couleurTexteStatut(patient.statut),
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ),
-              ),
-            ),
-
-            const SizedBox(height: 22),
-
-            const Text(
-              'Notifications',
-              style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-
-            const SizedBox(height: 12),
-
-            CarteInformation(
-              icone: Icons.notifications_active_outlined,
-              titre: 'Notifications autorisées',
-              valeur: texteNotification(),
-            ),
-
-            const SizedBox(height: 28),
-
-            Row(
-              children: [
-                Expanded(
-                  child: ElevatedButton.icon(
-                    onPressed: () {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text(
-                            'La modification sera ajoutée dans une prochaine étape',
-                          ),
-                        ),
-                      );
-                    },
-                    icon: const Icon(Icons.edit_outlined),
-                    label: const Text('Modifier'),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: OutlinedButton.icon(
-                    onPressed: () {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text(
-                            'La suppression sera ajoutée dans une prochaine étape',
-                          ),
-                        ),
-                      );
-                    },
-                    icon: const Icon(Icons.delete_outline),
-                    label: const Text('Supprimer'),
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ),
+  void retournerAuTableauDeBord() {
+    Navigator.pop(
+      context,
+      ResultatDossierPatient(
+        patientModifie: patientAEteModifie ? patientActuel : null,
       ),
     );
   }
-}
 
-class CarteEntetePatient extends StatelessWidget {
-  final Patient patient;
+  Future<void> ouvrirModificationPatient() async {
+    final Patient? patientModifie = await Navigator.push<Patient>(
+      context,
+      MaterialPageRoute(
+        builder: (context) => AjouterPatientView(
+          patientAModifier: patientActuel,
+        ),
+      ),
+    );
 
-  const CarteEntetePatient({
-    super.key,
-    required this.patient,
-  });
+    if (patientModifie == null || !mounted) {
+      return;
+    }
+
+    setState(() {
+      patientActuel = patientModifie;
+      patientAEteModifie = true;
+    });
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Patient modifié avec succès'),
+      ),
+    );
+  }
+
+  Future<void> demanderSuppression() async {
+    final bool? confirmation = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) {
+        return AlertDialog(
+          icon: const Icon(
+            Icons.warning_amber_rounded,
+            size: 40,
+          ),
+          title: const Text(
+            'Confirmation de suppression',
+            textAlign: TextAlign.center,
+          ),
+          content: const Text(
+            'Voulez-vous vraiment supprimer ce patient ?',
+            textAlign: TextAlign.center,
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.pop(dialogContext, false);
+              },
+              child: const Text('Garder le patient'),
+            ),
+            FilledButton.icon(
+              onPressed: () {
+                Navigator.pop(dialogContext, true);
+              },
+              icon: const Icon(Icons.delete_outline),
+              label: const Text('Supprimer'),
+              style: FilledButton.styleFrom(
+                backgroundColor: Colors.red,
+                foregroundColor: Colors.white,
+              ),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (confirmation == true && mounted) {
+      Navigator.pop(
+        context,
+        const ResultatDossierPatient(
+          patientSupprime: true,
+        ),
+      );
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      elevation: 0,
-      color: const Color(0xFF0E7C66),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(22),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(22),
-        child: Row(
-          children: [
-            const CircleAvatar(
-              radius: 32,
-              backgroundColor: Colors.white,
-              child: Icon(
-                Icons.person_outline,
-                color: Color(0xFF0E7C66),
-                size: 34,
+    return WillPopScope(
+      onWillPop: () async {
+        retournerAuTableauDeBord();
+        return false;
+      },
+      child: Scaffold(
+        appBar: AppBar(
+          automaticallyImplyLeading: false,
+          leading: IconButton(
+            onPressed: retournerAuTableauDeBord,
+            icon: const Icon(Icons.arrow_back),
+          ),
+          title: const Text('Dossier patient'),
+        ),
+        body: SingleChildScrollView(
+          padding: const EdgeInsets.all(18),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              CarteEntetePatient(
+                patient: patientActuel,
               ),
-            ),
-
-            const SizedBox(width: 16),
-
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+              const SizedBox(height: 22),
+              const Text(
+                'Informations personnelles',
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 12),
+              CarteInformation(
+                icone: Icons.person_outline,
+                titre: 'Nom complet',
+                valeur: patientActuel.nom,
+              ),
+              CarteInformation(
+                icone: Icons.email_outlined,
+                titre: 'Adresse e-mail',
+                valeur: patientActuel.email,
+              ),
+              CarteInformation(
+                icone: Icons.phone_outlined,
+                titre: 'Téléphone',
+                valeur: patientActuel.telephoneComplet,
+              ),
+              CarteInformation(
+                icone: Icons.public_outlined,
+                titre: 'Pays',
+                valeur: patientActuel.pays,
+              ),
+              const SizedBox(height: 22),
+              const Text(
+                'Suivi nutritionnel',
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 12),
+              CarteInformation(
+                icone: Icons.flag_outlined,
+                titre: 'Objectif nutritionnel',
+                valeur: patientActuel.objectif,
+              ),
+              Card(
+                elevation: 0,
+                color: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: ListTile(
+                  leading: const Icon(Icons.check_circle_outline),
+                  title: const Text('Statut du patient'),
+                  subtitle: Text(patientActuel.statut),
+                  trailing: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 6,
+                    ),
+                    decoration: BoxDecoration(
+                      color: couleurStatut(patientActuel.statut),
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Text(
+                      patientActuel.statut,
+                      style: TextStyle(
+                        color: couleurTexteStatut(
+                          patientActuel.statut,
+                        ),
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 22),
+              const Text(
+                'Notifications',
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 12),
+              CarteInformation(
+                icone: Icons.notifications_active_outlined,
+                titre: 'Notifications autorisées',
+                valeur: texteNotification(),
+              ),
+              const SizedBox(height: 28),
+              Row(
                 children: [
-                  Text(
-                    patient.nom,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 21,
-                      fontWeight: FontWeight.bold,
+                  Expanded(
+                    child: ElevatedButton.icon(
+                      onPressed: ouvrirModificationPatient,
+                      icon: const Icon(Icons.edit_outlined),
+                      label: const Text('Modifier'),
                     ),
                   ),
-                  const SizedBox(height: 6),
-                  Text(
-                    patient.objectif,
-                    style: const TextStyle(
-                      color: Colors.white70,
-                      fontSize: 15,
-                    ),
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    patient.telephoneComplet,
-                    style: const TextStyle(
-                      color: Colors.white70,
-                      fontSize: 15,
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: demanderSuppression,
+                      icon: const Icon(Icons.delete_outline),
+                      label: const Text('Supprimer'),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: Colors.red,
+                        side: const BorderSide(
+                          color: Colors.red,
+                        ),
+                      ),
                     ),
                   ),
                 ],
               ),
-            ),
-          ],
+            ],
+          ),
         ),
-      ),
-    );
-  }
-}
-
-class CarteInformation extends StatelessWidget {
-  final IconData icone;
-  final String titre;
-  final String valeur;
-
-  const CarteInformation({
-    super.key,
-    required this.icone,
-    required this.titre,
-    required this.valeur,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      elevation: 0,
-      color: Colors.white,
-      margin: const EdgeInsets.only(bottom: 12),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: ListTile(
-        leading: Icon(icone),
-        title: Text(titre),
-        subtitle: Text(valeur),
       ),
     );
   }
 }
 
 class AjouterPatientView extends StatefulWidget {
-  const AjouterPatientView({super.key});
+  final Patient? patientAModifier;
+
+  const AjouterPatientView({
+    super.key,
+    this.patientAModifier,
+  });
 
   @override
   State<AjouterPatientView> createState() => _AjouterPatientViewState();
 }
 
 class _AjouterPatientViewState extends State<AjouterPatientView> {
-  final TextEditingController nomController = TextEditingController();
-  final TextEditingController emailController = TextEditingController();
-  final TextEditingController telephoneController = TextEditingController();
-  final TextEditingController autreObjectifController = TextEditingController();
+  late final TextEditingController nomController;
+  late final TextEditingController emailController;
+  late final TextEditingController telephoneController;
+  late final TextEditingController autreObjectifController;
 
   final List<PaysTelephone> paysDisponibles = const [
     PaysTelephone(
@@ -656,12 +692,6 @@ class _AjouterPatientViewState extends State<AjouterPatientView> {
     ),
   ];
 
-  late PaysTelephone paysSelectionne;
-
-  String objectifSelectionne = 'Perte de poids';
-  String statutSelectionne = 'Actif';
-  bool notificationsAutorisees = true;
-
   final List<String> objectifsNutritionnels = const [
     'Perte de poids',
     'Prise de poids',
@@ -681,10 +711,59 @@ class _AjouterPatientViewState extends State<AjouterPatientView> {
     'En pause',
   ];
 
+  late PaysTelephone paysSelectionne;
+
+  String objectifSelectionne = 'Perte de poids';
+  String statutSelectionne = 'Actif';
+  bool notificationsAutorisees = true;
+
+  bool get estEnModeModification {
+    return widget.patientAModifier != null;
+  }
+
   @override
   void initState() {
     super.initState();
-    paysSelectionne = paysDisponibles.first;
+
+    final Patient? patient = widget.patientAModifier;
+
+    nomController = TextEditingController(
+      text: patient?.nom ?? '',
+    );
+
+    emailController = TextEditingController(
+      text: patient?.email ?? '',
+    );
+
+    telephoneController = TextEditingController(
+      text: patient?.telephone ?? '',
+    );
+
+    autreObjectifController = TextEditingController();
+
+    if (patient == null) {
+      paysSelectionne = paysDisponibles.first;
+      return;
+    }
+
+    paysSelectionne = paysDisponibles.firstWhere(
+      (pays) => pays.nom == patient.pays,
+      orElse: () => paysDisponibles.first,
+    );
+
+    if (objectifsNutritionnels.contains(patient.objectif) &&
+        patient.objectif != 'Autre') {
+      objectifSelectionne = patient.objectif;
+    } else {
+      objectifSelectionne = 'Autre';
+      autreObjectifController.text = patient.objectif;
+    }
+
+    if (statuts.contains(patient.statut)) {
+      statutSelectionne = patient.statut;
+    }
+
+    notificationsAutorisees = patient.notificationsAutorisees;
   }
 
   void enregistrerPatient() {
@@ -711,25 +790,31 @@ class _AjouterPatientViewState extends State<AjouterPatientView> {
     if (!email.contains('@') || !email.contains('.')) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Veuillez saisir une adresse e-mail valide'),
+          content: Text(
+            'Veuillez saisir une adresse e-mail valide',
+          ),
         ),
       );
       return;
     }
 
-    final String telephoneSansEspaces =
-        telephone.replaceAll(RegExp(r'[^0-9]'), '');
+    final String telephoneSansEspaces = telephone.replaceAll(
+      RegExp(r'[^0-9]'),
+      '',
+    );
 
     if (telephoneSansEspaces.length < 6) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Veuillez saisir un numéro de téléphone valide'),
+          content: Text(
+            'Veuillez saisir un numéro de téléphone valide',
+          ),
         ),
       );
       return;
     }
 
-    final Patient nouveauPatient = Patient(
+    final Patient patientEnregistre = Patient(
       nom: nom,
       email: email,
       pays: paysSelectionne.nom,
@@ -740,7 +825,7 @@ class _AjouterPatientViewState extends State<AjouterPatientView> {
       notificationsAutorisees: notificationsAutorisees,
     );
 
-    Navigator.pop(context, nouveauPatient);
+    Navigator.pop(context, patientEnregistre);
   }
 
   @override
@@ -754,54 +839,55 @@ class _AjouterPatientViewState extends State<AjouterPatientView> {
 
   @override
   Widget build(BuildContext context) {
-    final bool afficherAutreObjectif = objectifSelectionne == 'Autre';
+    final bool afficherAutreObjectif =
+        objectifSelectionne == 'Autre';
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Ajouter un patient'),
+        title: Text(
+          estEnModeModification
+              ? 'Modifier le patient'
+              : 'Ajouter un patient',
+        ),
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(18),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
-              'Nouveau dossier patient',
-              style: TextStyle(
+            Text(
+              estEnModeModification
+                  ? 'Modifier le dossier patient'
+                  : 'Nouveau dossier patient',
+              style: const TextStyle(
                 fontSize: 26,
                 fontWeight: FontWeight.bold,
               ),
             ),
-
             const SizedBox(height: 6),
-
-            const Text(
-              'Renseignez les informations principales du patient.',
-              style: TextStyle(
+            Text(
+              estEnModeModification
+                  ? 'Mettez à jour les informations du patient.'
+                  : 'Renseignez les informations principales du patient.',
+              style: const TextStyle(
                 fontSize: 15,
                 color: Colors.black54,
               ),
             ),
-
             const SizedBox(height: 24),
-
             ChampTexteProfessionnel(
               controller: nomController,
               label: 'Nom complet',
               icone: Icons.person_outline,
             ),
-
             const SizedBox(height: 16),
-
             ChampTexteProfessionnel(
               controller: emailController,
               label: 'Adresse e-mail',
               icone: Icons.email_outlined,
               typeClavier: TextInputType.emailAddress,
             ),
-
             const SizedBox(height: 16),
-
             DropdownButtonFormField<PaysTelephone>(
               value: paysSelectionne,
               decoration: InputDecoration(
@@ -815,34 +901,38 @@ class _AjouterPatientViewState extends State<AjouterPatientView> {
                 ),
               ),
               items: paysDisponibles.map((pays) {
-                return DropdownMenuItem(
+                return DropdownMenuItem<PaysTelephone>(
                   value: pays,
-                  child: Text('${pays.nom} (${pays.indicatif})'),
+                  child: Text(
+                    '${pays.nom} (${pays.indicatif})',
+                  ),
                 );
               }).toList(),
               onChanged: (value) {
-                if (value != null) {
-                  setState(() {
-                    paysSelectionne = value;
-                    telephoneController.clear();
-                  });
+                if (value == null) {
+                  return;
                 }
+
+                setState(() {
+                  if (paysSelectionne.nom != value.nom) {
+                    telephoneController.clear();
+                  }
+
+                  paysSelectionne = value;
+                });
               },
             ),
-
             const SizedBox(height: 16),
-
             ChampTexteProfessionnel(
               controller: telephoneController,
               label: 'Numéro de téléphone',
               icone: Icons.phone_outlined,
               typeClavier: TextInputType.phone,
               texteAide:
-                  'Format attendu : ${paysSelectionne.indicatif} ${paysSelectionne.exemple}',
+                  'Format attendu : ${paysSelectionne.indicatif} '
+                  '${paysSelectionne.exemple}',
             ),
-
             const SizedBox(height: 16),
-
             DropdownButtonFormField<String>(
               value: objectifSelectionne,
               decoration: InputDecoration(
@@ -856,20 +946,25 @@ class _AjouterPatientViewState extends State<AjouterPatientView> {
                 ),
               ),
               items: objectifsNutritionnels.map((objectif) {
-                return DropdownMenuItem(
+                return DropdownMenuItem<String>(
                   value: objectif,
                   child: Text(objectif),
                 );
               }).toList(),
               onChanged: (value) {
-                if (value != null) {
-                  setState(() {
-                    objectifSelectionne = value;
-                  });
+                if (value == null) {
+                  return;
                 }
+
+                setState(() {
+                  objectifSelectionne = value;
+
+                  if (value != 'Autre') {
+                    autreObjectifController.clear();
+                  }
+                });
               },
             ),
-
             if (afficherAutreObjectif) ...[
               const SizedBox(height: 16),
               ChampTexteProfessionnel(
@@ -878,14 +973,14 @@ class _AjouterPatientViewState extends State<AjouterPatientView> {
                 icone: Icons.edit_outlined,
               ),
             ],
-
             const SizedBox(height: 16),
-
             DropdownButtonFormField<String>(
               value: statutSelectionne,
               decoration: InputDecoration(
                 labelText: 'Statut du patient',
-                prefixIcon: const Icon(Icons.check_circle_outline),
+                prefixIcon: const Icon(
+                  Icons.check_circle_outline,
+                ),
                 filled: true,
                 fillColor: Colors.white,
                 border: OutlineInputBorder(
@@ -894,22 +989,22 @@ class _AjouterPatientViewState extends State<AjouterPatientView> {
                 ),
               ),
               items: statuts.map((statut) {
-                return DropdownMenuItem(
+                return DropdownMenuItem<String>(
                   value: statut,
                   child: Text(statut),
                 );
               }).toList(),
               onChanged: (value) {
-                if (value != null) {
-                  setState(() {
-                    statutSelectionne = value;
-                  });
+                if (value == null) {
+                  return;
                 }
+
+                setState(() {
+                  statutSelectionne = value;
+                });
               },
             ),
-
             const SizedBox(height: 16),
-
             CarteNotification(
               notificationsAutorisees: notificationsAutorisees,
               onChanged: (value) {
@@ -918,17 +1013,21 @@ class _AjouterPatientViewState extends State<AjouterPatientView> {
                 });
               },
             ),
-
             const SizedBox(height: 28),
-
             SizedBox(
               width: double.infinity,
               child: ElevatedButton.icon(
                 onPressed: enregistrerPatient,
                 icon: const Icon(Icons.save_outlined),
-                label: const Text('Enregistrer le patient'),
+                label: Text(
+                  estEnModeModification
+                      ? 'Enregistrer les modifications'
+                      : 'Enregistrer le patient',
+                ),
                 style: ElevatedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  padding: const EdgeInsets.symmetric(
+                    vertical: 16,
+                  ),
                   textStyle: const TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.bold,
@@ -938,6 +1037,104 @@ class _AjouterPatientViewState extends State<AjouterPatientView> {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class CarteEntetePatient extends StatelessWidget {
+  final Patient patient;
+
+  const CarteEntetePatient({
+    super.key,
+    required this.patient,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      elevation: 0,
+      color: const Color(0xFF0E7C66),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(22),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(22),
+        child: Row(
+          children: [
+            const CircleAvatar(
+              radius: 32,
+              backgroundColor: Colors.white,
+              child: Icon(
+                Icons.person_outline,
+                color: Color(0xFF0E7C66),
+                size: 34,
+              ),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    patient.nom,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 21,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    patient.objectif,
+                    style: const TextStyle(
+                      color: Colors.white70,
+                      fontSize: 15,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    patient.telephoneComplet,
+                    style: const TextStyle(
+                      color: Colors.white70,
+                      fontSize: 15,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class CarteInformation extends StatelessWidget {
+  final IconData icone;
+  final String titre;
+  final String valeur;
+
+  const CarteInformation({
+    super.key,
+    required this.icone,
+    required this.titre,
+    required this.valeur,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      elevation: 0,
+      color: Colors.white,
+      margin: const EdgeInsets.only(bottom: 12),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: ListTile(
+        leading: Icon(icone),
+        title: Text(titre),
+        subtitle: Text(valeur),
       ),
     );
   }
@@ -1000,7 +1197,9 @@ class CarteNotification extends StatelessWidget {
       child: SwitchListTile(
         value: notificationsAutorisees,
         onChanged: onChanged,
-        secondary: const Icon(Icons.notifications_active_outlined),
+        secondary: const Icon(
+          Icons.notifications_active_outlined,
+        ),
         title: const Text(
           'Notifications autorisées',
           style: TextStyle(
@@ -1102,9 +1301,9 @@ class CartePatient extends StatelessWidget {
   String texteNotification() {
     if (patient.notificationsAutorisees) {
       return 'Notifications : Oui';
-    } else {
-      return 'Notifications : Non';
     }
+
+    return 'Notifications : Non';
   }
 
   @override
@@ -1133,9 +1332,7 @@ class CartePatient extends StatelessWidget {
                   color: Color(0xFF0E7C66),
                 ),
               ),
-
               const SizedBox(width: 14),
-
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -1147,45 +1344,35 @@ class CartePatient extends StatelessWidget {
                         fontSize: 16,
                       ),
                     ),
-
                     const SizedBox(height: 4),
-
                     Text(
                       patient.email,
                       style: const TextStyle(
                         color: Colors.black87,
                       ),
                     ),
-
                     const SizedBox(height: 4),
-
                     Text(
                       'Téléphone : ${patient.telephoneComplet}',
                       style: const TextStyle(
                         color: Colors.black54,
                       ),
                     ),
-
                     const SizedBox(height: 4),
-
                     Text(
                       'Objectif : ${patient.objectif}',
                       style: const TextStyle(
                         color: Colors.black54,
                       ),
                     ),
-
                     const SizedBox(height: 4),
-
                     Text(
                       texteNotification(),
                       style: const TextStyle(
                         color: Colors.black54,
                       ),
                     ),
-
                     const SizedBox(height: 4),
-
                     const Text(
                       'Appuyer pour ouvrir le dossier',
                       style: TextStyle(
@@ -1196,9 +1383,7 @@ class CartePatient extends StatelessWidget {
                   ],
                 ),
               ),
-
               const SizedBox(width: 8),
-
               Container(
                 padding: const EdgeInsets.symmetric(
                   horizontal: 10,
@@ -1214,6 +1399,54 @@ class CartePatient extends StatelessWidget {
                     color: couleurTexteStatut(patient.statut),
                     fontWeight: FontWeight.w600,
                   ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class CarteListePatientsVide extends StatelessWidget {
+  const CarteListePatientsVide({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      elevation: 0,
+      color: Colors.white,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(18),
+      ),
+      child: const Padding(
+        padding: EdgeInsets.symmetric(
+          horizontal: 20,
+          vertical: 28,
+        ),
+        child: Center(
+          child: Column(
+            children: [
+              Icon(
+                Icons.people_outline,
+                size: 46,
+                color: Colors.black38,
+              ),
+              SizedBox(height: 12),
+              Text(
+                'Aucun patient enregistré',
+                style: TextStyle(
+                  fontSize: 17,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              SizedBox(height: 6),
+              Text(
+                'Appuyez sur Ajouter pour créer un nouveau dossier patient.',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: Colors.black54,
                 ),
               ),
             ],
