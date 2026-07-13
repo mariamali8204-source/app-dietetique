@@ -134,6 +134,15 @@ class _TableauDeBordViewState extends State<TableauDeBordView> {
     }
   }
 
+  void ouvrirDossierPatient(Patient patient) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => DossierPatientView(patient: patient),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final int plansActifs = patients.length * 2;
@@ -167,7 +176,9 @@ class _TableauDeBordViewState extends State<TableauDeBordView> {
                 fontWeight: FontWeight.bold,
               ),
             ),
+
             const SizedBox(height: 6),
+
             const Text(
               'Suivi professionnel des patients et des plans nutritionnels',
               style: TextStyle(
@@ -175,6 +186,7 @@ class _TableauDeBordViewState extends State<TableauDeBordView> {
                 color: Colors.black54,
               ),
             ),
+
             const SizedBox(height: 22),
 
             Row(
@@ -247,7 +259,13 @@ class _TableauDeBordViewState extends State<TableauDeBordView> {
               separatorBuilder: (context, index) => const SizedBox(height: 12),
               itemBuilder: (context, index) {
                 final patient = patients[index];
-                return CartePatient(patient: patient);
+
+                return CartePatient(
+                  patient: patient,
+                  onTap: () {
+                    ouvrirDossierPatient(patient);
+                  },
+                );
               },
             ),
           ],
@@ -257,6 +275,301 @@ class _TableauDeBordViewState extends State<TableauDeBordView> {
         onPressed: ouvrirEcranAjoutPatient,
         icon: const Icon(Icons.add),
         label: const Text('Ajouter'),
+      ),
+    );
+  }
+}
+
+class DossierPatientView extends StatelessWidget {
+  final Patient patient;
+
+  const DossierPatientView({
+    super.key,
+    required this.patient,
+  });
+
+  String texteNotification() {
+    if (patient.notificationsAutorisees) {
+      return 'Oui, le patient accepte les rappels et les suivis.';
+    } else {
+      return 'Non, le patient ne souhaite pas recevoir de notifications.';
+    }
+  }
+
+  Color couleurStatut(String statut) {
+    if (statut == 'Actif') {
+      return const Color(0xFFE8F5E9);
+    } else if (statut == 'Suivi') {
+      return const Color(0xFFE3F2FD);
+    } else {
+      return const Color(0xFFFFF3E0);
+    }
+  }
+
+  Color couleurTexteStatut(String statut) {
+    if (statut == 'Actif') {
+      return const Color(0xFF2E7D32);
+    } else if (statut == 'Suivi') {
+      return const Color(0xFF1565C0);
+    } else {
+      return const Color(0xFFE65100);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Dossier patient'),
+      ),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(18),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            CarteEntetePatient(patient: patient),
+
+            const SizedBox(height: 22),
+
+            const Text(
+              'Informations personnelles',
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+
+            const SizedBox(height: 12),
+
+            CarteInformation(
+              icone: Icons.person_outline,
+              titre: 'Nom complet',
+              valeur: patient.nom,
+            ),
+
+            CarteInformation(
+              icone: Icons.email_outlined,
+              titre: 'Adresse e-mail',
+              valeur: patient.email,
+            ),
+
+            CarteInformation(
+              icone: Icons.phone_outlined,
+              titre: 'Téléphone',
+              valeur: patient.telephoneComplet,
+            ),
+
+            CarteInformation(
+              icone: Icons.public_outlined,
+              titre: 'Pays',
+              valeur: patient.pays,
+            ),
+
+            const SizedBox(height: 22),
+
+            const Text(
+              'Suivi nutritionnel',
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+
+            const SizedBox(height: 12),
+
+            CarteInformation(
+              icone: Icons.flag_outlined,
+              titre: 'Objectif nutritionnel',
+              valeur: patient.objectif,
+            ),
+
+            Card(
+              elevation: 0,
+              color: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: ListTile(
+                leading: const Icon(Icons.check_circle_outline),
+                title: const Text('Statut du patient'),
+                subtitle: Text(patient.statut),
+                trailing: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 6,
+                  ),
+                  decoration: BoxDecoration(
+                    color: couleurStatut(patient.statut),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Text(
+                    patient.statut,
+                    style: TextStyle(
+                      color: couleurTexteStatut(patient.statut),
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+
+            const SizedBox(height: 22),
+
+            const Text(
+              'Notifications',
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+
+            const SizedBox(height: 12),
+
+            CarteInformation(
+              icone: Icons.notifications_active_outlined,
+              titre: 'Notifications autorisées',
+              valeur: texteNotification(),
+            ),
+
+            const SizedBox(height: 28),
+
+            Row(
+              children: [
+                Expanded(
+                  child: ElevatedButton.icon(
+                    onPressed: () {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text(
+                            'La modification sera ajoutée dans une prochaine étape',
+                          ),
+                        ),
+                      );
+                    },
+                    icon: const Icon(Icons.edit_outlined),
+                    label: const Text('Modifier'),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: () {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text(
+                            'La suppression sera ajoutée dans une prochaine étape',
+                          ),
+                        ),
+                      );
+                    },
+                    icon: const Icon(Icons.delete_outline),
+                    label: const Text('Supprimer'),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class CarteEntetePatient extends StatelessWidget {
+  final Patient patient;
+
+  const CarteEntetePatient({
+    super.key,
+    required this.patient,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      elevation: 0,
+      color: const Color(0xFF0E7C66),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(22),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(22),
+        child: Row(
+          children: [
+            const CircleAvatar(
+              radius: 32,
+              backgroundColor: Colors.white,
+              child: Icon(
+                Icons.person_outline,
+                color: Color(0xFF0E7C66),
+                size: 34,
+              ),
+            ),
+
+            const SizedBox(width: 16),
+
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    patient.nom,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 21,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    patient.objectif,
+                    style: const TextStyle(
+                      color: Colors.white70,
+                      fontSize: 15,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    patient.telephoneComplet,
+                    style: const TextStyle(
+                      color: Colors.white70,
+                      fontSize: 15,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class CarteInformation extends StatelessWidget {
+  final IconData icone;
+  final String titre;
+  final String valeur;
+
+  const CarteInformation({
+    super.key,
+    required this.icone,
+    required this.titre,
+    required this.valeur,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      elevation: 0,
+      color: Colors.white,
+      margin: const EdgeInsets.only(bottom: 12),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: ListTile(
+        leading: Icon(icone),
+        title: Text(titre),
+        subtitle: Text(valeur),
       ),
     );
   }
@@ -758,10 +1071,12 @@ class CarteStatistique extends StatelessWidget {
 
 class CartePatient extends StatelessWidget {
   final Patient patient;
+  final VoidCallback onTap;
 
   const CartePatient({
     super.key,
     required this.patient,
+    required this.onTap,
   });
 
   Color couleurStatut(String statut) {
@@ -800,104 +1115,109 @@ class CartePatient extends StatelessWidget {
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(18),
       ),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(
-          horizontal: 16,
-          vertical: 14,
-        ),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const CircleAvatar(
-              backgroundColor: Color(0xFFE0F2EE),
-              child: Icon(
-                Icons.person_outline,
-                color: Color(0xFF0E7C66),
-              ),
-            ),
-
-            const SizedBox(width: 14),
-
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    patient.nom,
-                    style: const TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 16,
-                    ),
-                  ),
-
-                  const SizedBox(height: 4),
-
-                  Text(
-                    patient.email,
-                    style: const TextStyle(
-                      color: Colors.black87,
-                    ),
-                  ),
-
-                  const SizedBox(height: 4),
-
-                  Text(
-                    'Téléphone : ${patient.telephoneComplet}',
-                    style: const TextStyle(
-                      color: Colors.black54,
-                    ),
-                  ),
-
-                  const SizedBox(height: 4),
-
-                  Text(
-                    'Pays : ${patient.pays}',
-                    style: const TextStyle(
-                      color: Colors.black54,
-                    ),
-                  ),
-
-                  const SizedBox(height: 4),
-
-                  Text(
-                    'Objectif : ${patient.objectif}',
-                    style: const TextStyle(
-                      color: Colors.black54,
-                    ),
-                  ),
-
-                  const SizedBox(height: 4),
-
-                  Text(
-                    texteNotification(),
-                    style: const TextStyle(
-                      color: Colors.black54,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-
-            const SizedBox(width: 8),
-
-            Container(
-              padding: const EdgeInsets.symmetric(
-                horizontal: 10,
-                vertical: 6,
-              ),
-              decoration: BoxDecoration(
-                color: couleurStatut(patient.statut),
-                borderRadius: BorderRadius.circular(20),
-              ),
-              child: Text(
-                patient.statut,
-                style: TextStyle(
-                  color: couleurTexteStatut(patient.statut),
-                  fontWeight: FontWeight.w600,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(18),
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(
+            horizontal: 16,
+            vertical: 14,
+          ),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const CircleAvatar(
+                backgroundColor: Color(0xFFE0F2EE),
+                child: Icon(
+                  Icons.person_outline,
+                  color: Color(0xFF0E7C66),
                 ),
               ),
-            ),
-          ],
+
+              const SizedBox(width: 14),
+
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      patient.nom,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
+                      ),
+                    ),
+
+                    const SizedBox(height: 4),
+
+                    Text(
+                      patient.email,
+                      style: const TextStyle(
+                        color: Colors.black87,
+                      ),
+                    ),
+
+                    const SizedBox(height: 4),
+
+                    Text(
+                      'Téléphone : ${patient.telephoneComplet}',
+                      style: const TextStyle(
+                        color: Colors.black54,
+                      ),
+                    ),
+
+                    const SizedBox(height: 4),
+
+                    Text(
+                      'Objectif : ${patient.objectif}',
+                      style: const TextStyle(
+                        color: Colors.black54,
+                      ),
+                    ),
+
+                    const SizedBox(height: 4),
+
+                    Text(
+                      texteNotification(),
+                      style: const TextStyle(
+                        color: Colors.black54,
+                      ),
+                    ),
+
+                    const SizedBox(height: 4),
+
+                    const Text(
+                      'Appuyer pour ouvrir le dossier',
+                      style: TextStyle(
+                        color: Color(0xFF0E7C66),
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+              const SizedBox(width: 8),
+
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 6,
+                ),
+                decoration: BoxDecoration(
+                  color: couleurStatut(patient.statut),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Text(
+                  patient.statut,
+                  style: TextStyle(
+                    color: couleurTexteStatut(patient.statut),
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
