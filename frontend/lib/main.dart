@@ -80,6 +80,19 @@ class TableauDeBordView extends StatefulWidget {
 }
 
 class _TableauDeBordViewState extends State<TableauDeBordView> {
+  final TextEditingController rechercheController = TextEditingController();
+
+  String texteRecherche = '';
+  String filtreSelectionne = 'Tous';
+
+  final List<String> filtresPatients = const [
+    'Tous',
+    'Actif',
+    'Suivi',
+    'En pause',
+    'Notifications autorisées',
+  ];
+
   final List<Patient> patients = [
     const Patient(
       nom: 'Mariam Ali',
@@ -123,6 +136,42 @@ class _TableauDeBordViewState extends State<TableauDeBordView> {
     ),
   ];
 
+  List<Patient> get patientsFiltres {
+    final String recherche = texteRecherche.toLowerCase().trim();
+
+    return patients.where((patient) {
+      final bool correspondRecherche =
+          patient.nom.toLowerCase().contains(recherche) ||
+          patient.email.toLowerCase().contains(recherche) ||
+          patient.telephoneComplet.toLowerCase().contains(recherche) ||
+          patient.objectif.toLowerCase().contains(recherche);
+
+      final bool correspondFiltre;
+
+      if (filtreSelectionne == 'Tous') {
+        correspondFiltre = true;
+      } else if (filtreSelectionne == 'Notifications autorisées') {
+        correspondFiltre = patient.notificationsAutorisees;
+      } else {
+        correspondFiltre = patient.statut == filtreSelectionne;
+      }
+
+      return correspondRecherche && correspondFiltre;
+    }).toList();
+  }
+
+  bool get rechercheOuFiltreActif {
+    return texteRecherche.trim().isNotEmpty || filtreSelectionne != 'Tous';
+  }
+
+  void reinitialiserRechercheEtFiltre() {
+    setState(() {
+      rechercheController.clear();
+      texteRecherche = '';
+      filtreSelectionne = 'Tous';
+    });
+  }
+
   Future<void> ouvrirEcranAjoutPatient() async {
     final Patient? nouveauPatient = await Navigator.push<Patient>(
       context,
@@ -151,6 +200,10 @@ class _TableauDeBordViewState extends State<TableauDeBordView> {
   }
 
   Future<void> ouvrirDossierPatient(int index) async {
+    if (index < 0 || index >= patients.length) {
+      return;
+    }
+
     final Patient patient = patients[index];
 
     final ResultatDossierPatient? resultat =
@@ -185,7 +238,19 @@ class _TableauDeBordViewState extends State<TableauDeBordView> {
       setState(() {
         patients[index] = resultat.patientModifie!;
       });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Liste mise à jour avec succès'),
+        ),
+      );
     }
+  }
+
+  @override
+  void dispose() {
+    rechercheController.dispose();
+    super.dispose();
   }
 
   @override
@@ -197,6 +262,8 @@ class _TableauDeBordViewState extends State<TableauDeBordView> {
           (patient) => patient.notificationsAutorisees,
         )
         .length;
+
+    final List<Patient> listeAffichee = patientsFiltres;
 
     return Scaffold(
       appBar: AppBar(
@@ -225,7 +292,9 @@ class _TableauDeBordViewState extends State<TableauDeBordView> {
                 fontWeight: FontWeight.bold,
               ),
             ),
+
             const SizedBox(height: 6),
+
             const Text(
               'Suivi professionnel des patients et des plans nutritionnels',
               style: TextStyle(
@@ -233,7 +302,9 @@ class _TableauDeBordViewState extends State<TableauDeBordView> {
                 color: Colors.black54,
               ),
             ),
+
             const SizedBox(height: 22),
+
             Row(
               children: [
                 Expanded(
@@ -253,7 +324,9 @@ class _TableauDeBordViewState extends State<TableauDeBordView> {
                 ),
               ],
             ),
+
             const SizedBox(height: 12),
+
             Row(
               children: [
                 const Expanded(
@@ -273,7 +346,29 @@ class _TableauDeBordViewState extends State<TableauDeBordView> {
                 ),
               ],
             ),
+
             const SizedBox(height: 28),
+
+            CarteRechercheEtFiltres(
+              controller: rechercheController,
+              texteRecherche: texteRecherche,
+              filtreSelectionne: filtreSelectionne,
+              filtres: filtresPatients,
+              onRechercheChangee: (value) {
+                setState(() {
+                  texteRecherche = value;
+                });
+              },
+              onFiltreChange: (value) {
+                setState(() {
+                  filtreSelectionne = value;
+                });
+              },
+              onReinitialiser: reinitialiserRechercheEtFiltre,
+            ),
+
+            const SizedBox(height: 24),
+
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
@@ -284,30 +379,41 @@ class _TableauDeBordViewState extends State<TableauDeBordView> {
                     fontWeight: FontWeight.bold,
                   ),
                 ),
-                TextButton(
-                  onPressed: () {},
-                  child: const Text('Voir tout'),
+                Text(
+                  '${listeAffichee.length} résultat(s)',
+                  style: const TextStyle(
+                    color: Colors.black54,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
               ],
             ),
+
             const SizedBox(height: 10),
+
             if (patients.isEmpty)
               const CarteListePatientsVide()
+            else if (listeAffichee.isEmpty)
+              CarteAucunResultat(
+                rechercheOuFiltreActif: rechercheOuFiltreActif,
+                onReinitialiser: reinitialiserRechercheEtFiltre,
+              )
             else
               ListView.separated(
                 shrinkWrap: true,
                 physics: const NeverScrollableScrollPhysics(),
-                itemCount: patients.length,
+                itemCount: listeAffichee.length,
                 separatorBuilder: (context, index) {
                   return const SizedBox(height: 12);
                 },
                 itemBuilder: (context, index) {
-                  final Patient patient = patients[index];
+                  final Patient patient = listeAffichee[index];
+                  final int indexOriginal = patients.indexOf(patient);
 
                   return CartePatient(
                     patient: patient,
                     onTap: () {
-                      ouvrirDossierPatient(index);
+                      ouvrirDossierPatient(indexOriginal);
                     },
                   );
                 },
@@ -484,7 +590,9 @@ class _DossierPatientViewState extends State<DossierPatientView> {
               CarteEntetePatient(
                 patient: patientActuel,
               ),
+
               const SizedBox(height: 22),
+
               const Text(
                 'Informations personnelles',
                 style: TextStyle(
@@ -492,28 +600,35 @@ class _DossierPatientViewState extends State<DossierPatientView> {
                   fontWeight: FontWeight.bold,
                 ),
               ),
+
               const SizedBox(height: 12),
+
               CarteInformation(
                 icone: Icons.person_outline,
                 titre: 'Nom complet',
                 valeur: patientActuel.nom,
               ),
+
               CarteInformation(
                 icone: Icons.email_outlined,
                 titre: 'Adresse e-mail',
                 valeur: patientActuel.email,
               ),
+
               CarteInformation(
                 icone: Icons.phone_outlined,
                 titre: 'Téléphone',
                 valeur: patientActuel.telephoneComplet,
               ),
+
               CarteInformation(
                 icone: Icons.public_outlined,
                 titre: 'Pays',
                 valeur: patientActuel.pays,
               ),
+
               const SizedBox(height: 22),
+
               const Text(
                 'Suivi nutritionnel',
                 style: TextStyle(
@@ -521,12 +636,15 @@ class _DossierPatientViewState extends State<DossierPatientView> {
                   fontWeight: FontWeight.bold,
                 ),
               ),
+
               const SizedBox(height: 12),
+
               CarteInformation(
                 icone: Icons.flag_outlined,
                 titre: 'Objectif nutritionnel',
                 valeur: patientActuel.objectif,
               ),
+
               Card(
                 elevation: 0,
                 color: Colors.white,
@@ -558,7 +676,9 @@ class _DossierPatientViewState extends State<DossierPatientView> {
                   ),
                 ),
               ),
+
               const SizedBox(height: 22),
+
               const Text(
                 'Notifications',
                 style: TextStyle(
@@ -566,13 +686,17 @@ class _DossierPatientViewState extends State<DossierPatientView> {
                   fontWeight: FontWeight.bold,
                 ),
               ),
+
               const SizedBox(height: 12),
+
               CarteInformation(
                 icone: Icons.notifications_active_outlined,
                 titre: 'Notifications autorisées',
                 valeur: texteNotification(),
               ),
+
               const SizedBox(height: 28),
+
               Row(
                 children: [
                   Expanded(
@@ -839,8 +963,7 @@ class _AjouterPatientViewState extends State<AjouterPatientView> {
 
   @override
   Widget build(BuildContext context) {
-    final bool afficherAutreObjectif =
-        objectifSelectionne == 'Autre';
+    final bool afficherAutreObjectif = objectifSelectionne == 'Autre';
 
     return Scaffold(
       appBar: AppBar(
@@ -864,7 +987,9 @@ class _AjouterPatientViewState extends State<AjouterPatientView> {
                 fontWeight: FontWeight.bold,
               ),
             ),
+
             const SizedBox(height: 6),
+
             Text(
               estEnModeModification
                   ? 'Mettez à jour les informations du patient.'
@@ -874,20 +999,26 @@ class _AjouterPatientViewState extends State<AjouterPatientView> {
                 color: Colors.black54,
               ),
             ),
+
             const SizedBox(height: 24),
+
             ChampTexteProfessionnel(
               controller: nomController,
               label: 'Nom complet',
               icone: Icons.person_outline,
             ),
+
             const SizedBox(height: 16),
+
             ChampTexteProfessionnel(
               controller: emailController,
               label: 'Adresse e-mail',
               icone: Icons.email_outlined,
               typeClavier: TextInputType.emailAddress,
             ),
+
             const SizedBox(height: 16),
+
             DropdownButtonFormField<PaysTelephone>(
               value: paysSelectionne,
               decoration: InputDecoration(
@@ -922,7 +1053,9 @@ class _AjouterPatientViewState extends State<AjouterPatientView> {
                 });
               },
             ),
+
             const SizedBox(height: 16),
+
             ChampTexteProfessionnel(
               controller: telephoneController,
               label: 'Numéro de téléphone',
@@ -932,7 +1065,9 @@ class _AjouterPatientViewState extends State<AjouterPatientView> {
                   'Format attendu : ${paysSelectionne.indicatif} '
                   '${paysSelectionne.exemple}',
             ),
+
             const SizedBox(height: 16),
+
             DropdownButtonFormField<String>(
               value: objectifSelectionne,
               decoration: InputDecoration(
@@ -965,6 +1100,7 @@ class _AjouterPatientViewState extends State<AjouterPatientView> {
                 });
               },
             ),
+
             if (afficherAutreObjectif) ...[
               const SizedBox(height: 16),
               ChampTexteProfessionnel(
@@ -973,7 +1109,9 @@ class _AjouterPatientViewState extends State<AjouterPatientView> {
                 icone: Icons.edit_outlined,
               ),
             ],
+
             const SizedBox(height: 16),
+
             DropdownButtonFormField<String>(
               value: statutSelectionne,
               decoration: InputDecoration(
@@ -1004,7 +1142,9 @@ class _AjouterPatientViewState extends State<AjouterPatientView> {
                 });
               },
             ),
+
             const SizedBox(height: 16),
+
             CarteNotification(
               notificationsAutorisees: notificationsAutorisees,
               onChanged: (value) {
@@ -1013,7 +1153,9 @@ class _AjouterPatientViewState extends State<AjouterPatientView> {
                 });
               },
             ),
+
             const SizedBox(height: 28),
+
             SizedBox(
               width: double.infinity,
               child: ElevatedButton.icon(
@@ -1035,6 +1177,106 @@ class _AjouterPatientViewState extends State<AjouterPatientView> {
                 ),
               ),
             ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class CarteRechercheEtFiltres extends StatelessWidget {
+  final TextEditingController controller;
+  final String texteRecherche;
+  final String filtreSelectionne;
+  final List<String> filtres;
+  final ValueChanged<String> onRechercheChangee;
+  final ValueChanged<String> onFiltreChange;
+  final VoidCallback onReinitialiser;
+
+  const CarteRechercheEtFiltres({
+    super.key,
+    required this.controller,
+    required this.texteRecherche,
+    required this.filtreSelectionne,
+    required this.filtres,
+    required this.onRechercheChangee,
+    required this.onFiltreChange,
+    required this.onReinitialiser,
+  });
+
+  bool get rechercheOuFiltreActif {
+    return texteRecherche.trim().isNotEmpty || filtreSelectionne != 'Tous';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      elevation: 0,
+      color: Colors.white,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(18),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          children: [
+            TextField(
+              controller: controller,
+              onChanged: onRechercheChangee,
+              decoration: InputDecoration(
+                labelText: 'Rechercher un patient',
+                hintText: 'Nom, e-mail, téléphone ou objectif',
+                prefixIcon: const Icon(Icons.search),
+                suffixIcon: texteRecherche.trim().isEmpty
+                    ? null
+                    : IconButton(
+                        onPressed: () {
+                          controller.clear();
+                          onRechercheChangee('');
+                        },
+                        icon: const Icon(Icons.close),
+                      ),
+                filled: true,
+                fillColor: const Color(0xFFF6F8FA),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(16),
+                  borderSide: BorderSide.none,
+                ),
+              ),
+            ),
+
+            const SizedBox(height: 14),
+
+            Align(
+              alignment: Alignment.centerLeft,
+              child: Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: filtres.map((filtre) {
+                  final bool estSelectionne = filtre == filtreSelectionne;
+
+                  return FilterChip(
+                    label: Text(filtre),
+                    selected: estSelectionne,
+                    onSelected: (_) {
+                      onFiltreChange(filtre);
+                    },
+                  );
+                }).toList(),
+              ),
+            ),
+
+            if (rechercheOuFiltreActif) ...[
+              const SizedBox(height: 12),
+              Align(
+                alignment: Alignment.centerRight,
+                child: TextButton.icon(
+                  onPressed: onReinitialiser,
+                  icon: const Icon(Icons.refresh),
+                  label: const Text('Réinitialiser'),
+                ),
+              ),
+            ],
           ],
         ),
       ),
@@ -1449,6 +1691,69 @@ class CarteListePatientsVide extends StatelessWidget {
                   color: Colors.black54,
                 ),
               ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class CarteAucunResultat extends StatelessWidget {
+  final bool rechercheOuFiltreActif;
+  final VoidCallback onReinitialiser;
+
+  const CarteAucunResultat({
+    super.key,
+    required this.rechercheOuFiltreActif,
+    required this.onReinitialiser,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      elevation: 0,
+      color: Colors.white,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(18),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(
+          horizontal: 20,
+          vertical: 28,
+        ),
+        child: Center(
+          child: Column(
+            children: [
+              const Icon(
+                Icons.search_off_outlined,
+                size: 46,
+                color: Colors.black38,
+              ),
+              const SizedBox(height: 12),
+              const Text(
+                'Aucun résultat trouvé',
+                style: TextStyle(
+                  fontSize: 17,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 6),
+              const Text(
+                'Essayez une autre recherche ou modifiez le filtre sélectionné.',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: Colors.black54,
+                ),
+              ),
+              if (rechercheOuFiltreActif) ...[
+                const SizedBox(height: 14),
+                TextButton.icon(
+                  onPressed: onReinitialiser,
+                  icon: const Icon(Icons.refresh),
+                  label: const Text('Réinitialiser'),
+                ),
+              ],
             ],
           ),
         ),
