@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../models/patient.dart';
+import 'ajouter_patient_view.dart';
 import 'dossier_patient_view.dart';
 
 class PatientsView extends StatefulWidget {
@@ -16,7 +17,7 @@ class _PatientsViewState extends State<PatientsView> {
       id: 1,
       userId: 1,
       nom: 'Mariam Ali',
-      email: 'mariam.ali@email.com',
+      email: 'mariam.ali@gmail.com',
       pays: 'Liban',
       indicatif: '+961',
       telephone: '70123456',
@@ -56,6 +57,79 @@ class _PatientsViewState extends State<PatientsView> {
     ),
   ];
 
+  Future<void> _ajouterPatient() async {
+    final nouveauPatient = await Navigator.push<Patient>(
+      context,
+      MaterialPageRoute(
+        builder: (context) => const AjouterPatientView(),
+      ),
+    );
+
+    if (!mounted) return;
+
+    if (nouveauPatient != null) {
+      setState(() {
+        patients.add(
+          Patient(
+            id: patients.length + 1,
+            userId: nouveauPatient.userId,
+            nom: nouveauPatient.nom,
+            email: nouveauPatient.email,
+            pays: nouveauPatient.pays,
+            indicatif: nouveauPatient.indicatif,
+            telephone: nouveauPatient.telephone,
+            objectifNutritionnel: nouveauPatient.objectifNutritionnel,
+            statut: nouveauPatient.statut,
+            notificationsAutorisees: nouveauPatient.notificationsAutorisees,
+            createdAt: nouveauPatient.createdAt,
+            updatedAt: nouveauPatient.updatedAt,
+          ),
+        );
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Patient ajouté avec succès'),
+        ),
+      );
+    }
+  }
+
+  Future<void> _ouvrirDossierPatient(int index) async {
+    final patientModifie = await Navigator.push<Patient>(
+      context,
+      MaterialPageRoute(
+        builder: (context) => DossierPatientView(
+          patient: patients[index],
+        ),
+      ),
+    );
+
+    if (!mounted) return;
+
+    if (patientModifie != null) {
+      setState(() {
+        patients[index] = patientModifie;
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Patient modifié avec succès'),
+        ),
+      );
+    }
+  }
+
+  Color _couleurStatut(String statut) {
+    if (statut == 'Actif') {
+      return Colors.green;
+    } else if (statut == 'Suivi') {
+      return Colors.orange;
+    } else {
+      return Colors.grey;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -87,10 +161,12 @@ class _PatientsViewState extends State<PatientsView> {
                     margin: const EdgeInsets.only(bottom: 12),
                     child: ListTile(
                       leading: CircleAvatar(
+                        backgroundColor: _couleurStatut(patient.statut),
                         child: Text(
                           patient.nom.isNotEmpty
                               ? patient.nom[0].toUpperCase()
                               : '?',
+                          style: const TextStyle(color: Colors.white),
                         ),
                       ),
                       title: Text(patient.nom),
@@ -99,13 +175,7 @@ class _PatientsViewState extends State<PatientsView> {
                       ),
                       trailing: const Icon(Icons.arrow_forward_ios),
                       onTap: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) =>
-                                DossierPatientView(patient: patient),
-                          ),
-                        );
+                        _ouvrirDossierPatient(index);
                       },
                     ),
                   );
@@ -114,6 +184,11 @@ class _PatientsViewState extends State<PatientsView> {
             ),
           ],
         ),
+      ),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: _ajouterPatient,
+        icon: const Icon(Icons.add),
+        label: const Text('Ajouter'),
       ),
     );
   }
