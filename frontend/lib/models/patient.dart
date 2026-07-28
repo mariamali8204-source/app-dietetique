@@ -1,6 +1,6 @@
 class Patient {
-  final int? id;
-  final int? userId;
+  final int id;
+  final int userId;
   final String nom;
   final String email;
   final String pays;
@@ -9,12 +9,12 @@ class Patient {
   final String objectifNutritionnel;
   final String statut;
   final bool notificationsAutorisees;
-  final DateTime? createdAt;
-  final DateTime? updatedAt;
+  final DateTime createdAt;
+  final DateTime updatedAt;
 
-  const Patient({
-    this.id,
-    this.userId,
+  Patient({
+    required this.id,
+    required this.userId,
     required this.nom,
     required this.email,
     required this.pays,
@@ -23,9 +23,13 @@ class Patient {
     required this.objectifNutritionnel,
     required this.statut,
     required this.notificationsAutorisees,
-    this.createdAt,
-    this.updatedAt,
+    required this.createdAt,
+    required this.updatedAt,
   });
+
+  String get telephoneComplet {
+    return '$indicatif $telephone';
+  }
 
   factory Patient.fromJson(Map<String, dynamic> json) {
     return Patient(
@@ -39,12 +43,8 @@ class Patient {
       objectifNutritionnel: json['objectifNutritionnel'],
       statut: json['statut'],
       notificationsAutorisees: json['notificationsAutorisees'],
-      createdAt: json['createdAt'] != null
-          ? DateTime.parse(json['createdAt'])
-          : null,
-      updatedAt: json['updatedAt'] != null
-          ? DateTime.parse(json['updatedAt'])
-          : null,
+      createdAt: DateTime.parse(json['createdAt']),
+      updatedAt: DateTime.parse(json['updatedAt']),
     );
   }
 
@@ -60,8 +60,8 @@ class Patient {
       'objectifNutritionnel': objectifNutritionnel,
       'statut': statut,
       'notificationsAutorisees': notificationsAutorisees,
-      'createdAt': createdAt?.toIso8601String(),
-      'updatedAt': updatedAt?.toIso8601String(),
+      'createdAt': createdAt.toIso8601String(),
+      'updatedAt': updatedAt.toIso8601String(),
     };
   }
 }

@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
 import '../../models/patient.dart';
+import '../../services/health_service.dart';
+import '../../services/patient_service.dart';
 import 'ajouter_patient_view.dart';
 import 'dossier_patient_view.dart';
 
@@ -12,50 +14,69 @@ class PatientsView extends StatefulWidget {
 }
 
 class _PatientsViewState extends State<PatientsView> {
-  final List<Patient> patients = [
-    Patient(
-      id: 1,
-      userId: 1,
-      nom: 'Mariam Ali',
-      email: 'mariam.ali@gmail.com',
-      pays: 'Liban',
-      indicatif: '+961',
-      telephone: '70123456',
-      objectifNutritionnel: 'Perte de poids',
-      statut: 'Actif',
-      notificationsAutorisees: true,
-      createdAt: DateTime(2026, 7, 23),
-      updatedAt: DateTime(2026, 7, 23),
-    ),
-    Patient(
-      id: 2,
-      userId: 1,
-      nom: 'Sally Ahmad',
-      email: 'sally.ahmad@email.com',
-      pays: 'Liban',
-      indicatif: '+961',
-      telephone: '71123456',
-      objectifNutritionnel: 'Nutrition équilibrée',
-      statut: 'Suivi',
-      notificationsAutorisees: true,
-      createdAt: DateTime(2026, 7, 23),
-      updatedAt: DateTime(2026, 7, 23),
-    ),
-    Patient(
-      id: 3,
-      userId: 1,
-      nom: 'Nour Hassan',
-      email: 'nour.hassan@email.com',
-      pays: 'Liban',
-      indicatif: '+961',
-      telephone: '76123456',
-      objectifNutritionnel: 'Maintien du poids',
-      statut: 'En pause',
-      notificationsAutorisees: false,
-      createdAt: DateTime(2026, 7, 23),
-      updatedAt: DateTime(2026, 7, 23),
-    ),
-  ];
+  final HealthService _healthService = HealthService();
+  final PatientService _patientService = PatientService();
+
+  bool? _backendConnected;
+  String _backendMessage = 'Vérification de la connexion...';
+
+  bool _isLoadingPatients = true;
+  String? _patientsError;
+
+  List<Patient> patients = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _verifierBackend();
+    _chargerPatients();
+  }
+
+  Future<void> _verifierBackend() async {
+    setState(() {
+      _backendConnected = null;
+      _backendMessage = 'Vérification de la connexion...';
+    });
+
+    final result = await _healthService.checkHealth();
+
+    if (!mounted) return;
+
+    setState(() {
+      _backendConnected = result.isConnected;
+      _backendMessage = result.message;
+    });
+  }
+
+  Future<void> _chargerPatients() async {
+    setState(() {
+      _isLoadingPatients = true;
+      _patientsError = null;
+    });
+
+    try {
+      final patientsDepuisApi = await _patientService.getPatients();
+
+      if (!mounted) return;
+
+      setState(() {
+        patients = patientsDepuisApi;
+        _isLoadingPatients = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+
+      setState(() {
+        _isLoadingPatients = false;
+        _patientsError = 'Impossible de charger les patients';
+      });
+    }
+  }
+
+  Future<void> _actualiser() async {
+    await _verifierBackend();
+    await _chargerPatients();
+  }
 
   Future<void> _ajouterPatient() async {
     final nouveauPatient = await Navigator.push<Patient>(
@@ -82,14 +103,14 @@ class _PatientsViewState extends State<PatientsView> {
             statut: nouveauPatient.statut,
             notificationsAutorisees: nouveauPatient.notificationsAutorisees,
             createdAt: nouveauPatient.createdAt,
-            updatedAt: nouveauPatient.updatedAt,
+            updatedAt: DateTime.now(),
           ),
         );
       });
 
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Patient ajouté avec succès'),
+          content: Text('Patient ajouté localement'),
         ),
       );
     }
@@ -114,7 +135,7 @@ class _PatientsViewState extends State<PatientsView> {
 
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Patient modifié avec succès'),
+          content: Text('Patient modifié localement'),
         ),
       );
     }
@@ -130,11 +151,163 @@ class _PatientsViewState extends State<PatientsView> {
     }
   }
 
+  Color _couleurBackend() {
+    if (_backendConnected == null) {
+      return Colors.blueGrey;
+    }
+
+    if (_backendConnected == true) {
+      return Colors.green;
+    }
+
+    return Colors.red;
+  }
+
+  IconData _iconeBackend() {
+    if (_backendConnected == null) {
+      return Icons.sync;
+    }
+
+    if (_backendConnected == true) {
+      return Icons.cloud_done;
+    }
+
+    return Icons.cloud_off;
+  }
+
+  String _titreBackend() {
+    if (_backendConnected == null) {
+      return 'Connexion au backend';
+    }
+
+    if (_backendConnected == true) {
+      return 'Backend connecté';
+    }
+
+    return 'Backend non connecté';
+  }
+
+  Widget _carteStatutBackend() {
+    final couleur = _couleurBackend();
+
+    return Card(
+      elevation: 1,
+      margin: const EdgeInsets.only(bottom: 16),
+      child: Padding(
+        padding: const EdgeInsets.all(14),
+        child: Row(
+          children: [
+            CircleAvatar(
+              backgroundColor: couleur.withValues(alpha: 0.12),
+              child: Icon(
+                _iconeBackend(),
+                color: couleur,
+              ),
+            ),
+            const SizedBox(width: 12),
+
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    _titreBackend(),
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    _backendMessage,
+                    style: TextStyle(
+                      color: Colors.grey.shade700,
+                      fontSize: 13,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+            IconButton(
+              onPressed: _actualiser,
+              icon: const Icon(Icons.refresh),
+              tooltip: 'Actualiser',
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _cartePatient(Patient patient, int index) {
+    return Card(
+      margin: const EdgeInsets.only(bottom: 12),
+      child: ListTile(
+        leading: CircleAvatar(
+          backgroundColor: _couleurStatut(patient.statut),
+          child: Text(
+            patient.nom.isNotEmpty ? patient.nom[0].toUpperCase() : '?',
+            style: const TextStyle(color: Colors.white),
+          ),
+        ),
+        title: Text(patient.nom),
+        subtitle: Text(
+          '${patient.objectifNutritionnel} • ${patient.statut} • ${patient.pays}',
+        ),
+        trailing: const Icon(Icons.arrow_forward_ios),
+        onTap: () {
+          _ouvrirDossierPatient(index);
+        },
+      ),
+    );
+  }
+
+  Widget _contenuPatients() {
+    if (_isLoadingPatients) {
+      return const Center(
+        child: CircularProgressIndicator(),
+      );
+    }
+
+    if (_patientsError != null) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text(_patientsError!),
+            const SizedBox(height: 12),
+            ElevatedButton.icon(
+              onPressed: _chargerPatients,
+              icon: const Icon(Icons.refresh),
+              label: const Text('Réessayer'),
+            ),
+          ],
+        ),
+      );
+    }
+
+    if (patients.isEmpty) {
+      return const Center(
+        child: Text('Aucun patient trouvé'),
+      );
+    }
+
+    return ListView.builder(
+      itemCount: patients.length,
+      itemBuilder: (context, index) {
+        return _cartePatient(patients[index], index);
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: const Color(0xFFF6FAF8),
       appBar: AppBar(
         title: const Text('NutriCare Pro'),
+        backgroundColor: const Color(0xFFF6FAF8),
+        elevation: 0,
       ),
       body: Padding(
         padding: const EdgeInsets.all(16),
@@ -143,44 +316,20 @@ class _PatientsViewState extends State<PatientsView> {
           children: [
             Text(
               'Patients',
-              style: Theme.of(context).textTheme.headlineSmall,
+              style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
             ),
             const SizedBox(height: 8),
             const Text(
-              'Liste dynamique des patients suivis par le diététicien.',
+              'Liste des patients chargée depuis le backend FastAPI.',
             ),
             const SizedBox(height: 16),
 
-            Expanded(
-              child: ListView.builder(
-                itemCount: patients.length,
-                itemBuilder: (context, index) {
-                  final patient = patients[index];
+            _carteStatutBackend(),
 
-                  return Card(
-                    margin: const EdgeInsets.only(bottom: 12),
-                    child: ListTile(
-                      leading: CircleAvatar(
-                        backgroundColor: _couleurStatut(patient.statut),
-                        child: Text(
-                          patient.nom.isNotEmpty
-                              ? patient.nom[0].toUpperCase()
-                              : '?',
-                          style: const TextStyle(color: Colors.white),
-                        ),
-                      ),
-                      title: Text(patient.nom),
-                      subtitle: Text(
-                        '${patient.objectifNutritionnel} • ${patient.statut}',
-                      ),
-                      trailing: const Icon(Icons.arrow_forward_ios),
-                      onTap: () {
-                        _ouvrirDossierPatient(index);
-                      },
-                    ),
-                  );
-                },
-              ),
+            Expanded(
+              child: _contenuPatients(),
             ),
           ],
         ),
