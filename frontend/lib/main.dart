@@ -3,11 +3,11 @@ import 'package:flutter/material.dart';
 import 'views/patient/patients_view.dart';
 
 void main() {
-  runApp(const NutriCareApp());
+  runApp(const NutriCareProApp());
 }
 
-class NutriCareApp extends StatelessWidget {
-  const NutriCareApp({super.key});
+class NutriCareProApp extends StatelessWidget {
+  const NutriCareProApp({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -16,9 +16,12 @@ class NutriCareApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xFF0E7C66),
+          seedColor: Colors.teal,
         ),
         useMaterial3: true,
+        inputDecorationTheme: const InputDecorationTheme(
+          border: OutlineInputBorder(),
+        ),
       ),
       home: const PatientsView(),
     );

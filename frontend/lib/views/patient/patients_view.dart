@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../models/patient.dart';
 import '../../services/health_service.dart';
 import '../../services/patient_service.dart';
+import '../dieteticien/profil_dieteticien_view.dart';
 import 'ajouter_patient_view.dart';
 import 'dossier_patient_view.dart';
 
@@ -78,6 +79,15 @@ class _PatientsViewState extends State<PatientsView> {
     await _chargerPatients();
   }
 
+  Future<void> _ouvrirProfilDieteticien() async {
+    await Navigator.push<void>(
+      context,
+      MaterialPageRoute(
+        builder: (context) => const ProfilDieteticienView(),
+      ),
+    );
+  }
+
   Future<void> _ajouterPatient() async {
     final nouveauPatient = await Navigator.push<Patient>(
       context,
@@ -88,36 +98,39 @@ class _PatientsViewState extends State<PatientsView> {
 
     if (!mounted) return;
 
-    if (nouveauPatient != null) {
+    if (nouveauPatient == null) {
+      return;
+    }
+
+    final messenger = ScaffoldMessenger.of(context);
+
+    try {
+      final patientCree = await _patientService.addPatient(nouveauPatient);
+
+      if (!mounted) return;
+
       setState(() {
-        patients.add(
-          Patient(
-            id: patients.length + 1,
-            userId: nouveauPatient.userId,
-            nom: nouveauPatient.nom,
-            email: nouveauPatient.email,
-            pays: nouveauPatient.pays,
-            indicatif: nouveauPatient.indicatif,
-            telephone: nouveauPatient.telephone,
-            objectifNutritionnel: nouveauPatient.objectifNutritionnel,
-            statut: nouveauPatient.statut,
-            notificationsAutorisees: nouveauPatient.notificationsAutorisees,
-            createdAt: nouveauPatient.createdAt,
-            updatedAt: DateTime.now(),
-          ),
-        );
+        patients.add(patientCree);
       });
 
-      ScaffoldMessenger.of(context).showSnackBar(
+      messenger.showSnackBar(
         const SnackBar(
-          content: Text('Patient ajouté localement'),
+          content: Text('Patient ajouté depuis le backend'),
+        ),
+      );
+    } catch (_) {
+      if (!mounted) return;
+
+      messenger.showSnackBar(
+        const SnackBar(
+          content: Text('Erreur lors de l’ajout du patient'),
         ),
       );
     }
   }
 
   Future<void> _ouvrirDossierPatient(int index) async {
-    final patientModifie = await Navigator.push<Patient>(
+    final resultat = await Navigator.push<dynamic>(
       context,
       MaterialPageRoute(
         builder: (context) => DossierPatientView(
@@ -128,16 +141,46 @@ class _PatientsViewState extends State<PatientsView> {
 
     if (!mounted) return;
 
-    if (patientModifie != null) {
+    final messenger = ScaffoldMessenger.of(context);
+
+    if (resultat == true) {
       setState(() {
-        patients[index] = patientModifie;
+        patients.removeAt(index);
       });
 
-      ScaffoldMessenger.of(context).showSnackBar(
+      messenger.showSnackBar(
         const SnackBar(
-          content: Text('Patient modifié localement'),
+          content: Text('Patient supprimé depuis le backend'),
         ),
       );
+
+      return;
+    }
+
+    if (resultat is Patient) {
+      try {
+        final patientMisAJour = await _patientService.updatePatient(resultat);
+
+        if (!mounted) return;
+
+        setState(() {
+          patients[index] = patientMisAJour;
+        });
+
+        messenger.showSnackBar(
+          const SnackBar(
+            content: Text('Patient modifié depuis le backend'),
+          ),
+        );
+      } catch (_) {
+        if (!mounted) return;
+
+        messenger.showSnackBar(
+          const SnackBar(
+            content: Text('Erreur lors de la modification du patient'),
+          ),
+        );
+      }
     }
   }
 
@@ -308,6 +351,13 @@ class _PatientsViewState extends State<PatientsView> {
         title: const Text('NutriCare Pro'),
         backgroundColor: const Color(0xFFF6FAF8),
         elevation: 0,
+        actions: [
+          IconButton(
+            onPressed: _ouvrirProfilDieteticien,
+            icon: const Icon(Icons.account_circle),
+            tooltip: 'Profil du diététicien',
+          ),
+        ],
       ),
       body: Padding(
         padding: const EdgeInsets.all(16),

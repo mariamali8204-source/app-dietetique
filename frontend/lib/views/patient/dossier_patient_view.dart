@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../models/patient.dart';
+import '../../services/patient_service.dart';
 import 'modifier_patient_view.dart';
 
 class DossierPatientView extends StatefulWidget {
@@ -17,6 +18,9 @@ class DossierPatientView extends StatefulWidget {
 
 class _DossierPatientViewState extends State<DossierPatientView> {
   late Patient _patient;
+
+  final PatientService _patientService = PatientService();
+  bool _isDeleting = false;
 
   @override
   void initState() {
@@ -55,11 +59,66 @@ class _DossierPatientViewState extends State<DossierPatientView> {
     if (!mounted) return;
 
     if (patientModifie != null) {
+      Navigator.pop(context, patientModifie);
+    }
+  }
+
+  Future<void> _confirmerSuppression() async {
+    final confirmation = await showDialog<bool>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Supprimer le patient'),
+          content: const Text(
+            'Voulez-vous vraiment supprimer ce patient ?',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.pop(context, false);
+              },
+              child: const Text('Annuler'),
+            ),
+            ElevatedButton.icon(
+              onPressed: () {
+                Navigator.pop(context, true);
+              },
+              icon: const Icon(Icons.delete),
+              label: const Text('Supprimer'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (confirmation == true) {
+      await _supprimerPatient();
+    }
+  }
+
+  Future<void> _supprimerPatient() async {
+    setState(() {
+      _isDeleting = true;
+    });
+
+    try {
+      await _patientService.deletePatient(_patient.id);
+
+      if (!mounted) return;
+
+      Navigator.pop(context, true);
+    } catch (_) {
+      if (!mounted) return;
+
       setState(() {
-        _patient = patientModifie;
+        _isDeleting = false;
       });
 
-      Navigator.pop(context, patientModifie);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Erreur lors de la suppression du patient'),
+        ),
+      );
     }
   }
 
@@ -204,14 +263,6 @@ class _DossierPatientViewState extends State<DossierPatientView> {
     );
   }
 
-  void _afficherMessageSuppression() {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('La suppression sera connectée au backend plus tard'),
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -316,9 +367,9 @@ class _DossierPatientViewState extends State<DossierPatientView> {
             SizedBox(
               width: double.infinity,
               child: OutlinedButton.icon(
-                onPressed: _afficherMessageSuppression,
+                onPressed: _isDeleting ? null : _confirmerSuppression,
                 icon: const Icon(Icons.delete),
-                label: const Text('Supprimer'),
+                label: Text(_isDeleting ? 'Suppression...' : 'Supprimer'),
               ),
             ),
           ],

@@ -1,18 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:intl_phone_field/intl_phone_field.dart';
 
 import '../../models/patient.dart';
-
-class PaysTelephone {
-  final String nom;
-  final String indicatif;
-  final String exemple;
-
-  const PaysTelephone({
-    required this.nom,
-    required this.indicatif,
-    required this.exemple,
-  });
-}
 
 class AjouterPatientView extends StatefulWidget {
   const AjouterPatientView({super.key});
@@ -26,75 +15,8 @@ class _AjouterPatientViewState extends State<AjouterPatientView> {
 
   final TextEditingController _nomController = TextEditingController();
   final TextEditingController _emailController = TextEditingController();
-  final TextEditingController _telephoneController = TextEditingController();
-
-  final List<PaysTelephone> _paysDisponibles = const [
-    PaysTelephone(
-      nom: 'Liban',
-      indicatif: '+961',
-      exemple: '71 123 456',
-    ),
-    PaysTelephone(
-      nom: 'France',
-      indicatif: '+33',
-      exemple: '6 12 34 56 78',
-    ),
-    PaysTelephone(
-      nom: 'Égypte',
-      indicatif: '+20',
-      exemple: '100 123 4567',
-    ),
-    PaysTelephone(
-      nom: 'Jordanie',
-      indicatif: '+962',
-      exemple: '7 9012 3456',
-    ),
-    PaysTelephone(
-      nom: 'Syrie',
-      indicatif: '+963',
-      exemple: '944 123 456',
-    ),
-    PaysTelephone(
-      nom: 'Arabie saoudite',
-      indicatif: '+966',
-      exemple: '50 123 4567',
-    ),
-    PaysTelephone(
-      nom: 'Émirats arabes unis',
-      indicatif: '+971',
-      exemple: '50 123 4567',
-    ),
-    PaysTelephone(
-      nom: 'Qatar',
-      indicatif: '+974',
-      exemple: '3312 3456',
-    ),
-    PaysTelephone(
-      nom: 'Koweït',
-      indicatif: '+965',
-      exemple: '500 12345',
-    ),
-    PaysTelephone(
-      nom: 'Turquie',
-      indicatif: '+90',
-      exemple: '532 123 4567',
-    ),
-    PaysTelephone(
-      nom: 'États-Unis',
-      indicatif: '+1',
-      exemple: '202 555 0100',
-    ),
-    PaysTelephone(
-      nom: 'Canada',
-      indicatif: '+1',
-      exemple: '416 555 0100',
-    ),
-    PaysTelephone(
-      nom: 'Royaume-Uni',
-      indicatif: '+44',
-      exemple: '7700 900123',
-    ),
-  ];
+  final TextEditingController _autreObjectifController =
+      TextEditingController();
 
   final List<String> _objectifs = const [
     'Perte de poids',
@@ -103,9 +25,12 @@ class _AjouterPatientViewState extends State<AjouterPatientView> {
     'Nutrition équilibrée',
     'Diabète',
     'Cholestérol',
+    'Hypertension',
     'Plan sportif',
     'Grossesse',
     'Troubles digestifs',
+    'Rééquilibrage alimentaire',
+    'Intolérances alimentaires',
     'Autre',
   ];
 
@@ -115,23 +40,32 @@ class _AjouterPatientViewState extends State<AjouterPatientView> {
     'En pause',
   ];
 
-  late PaysTelephone _paysSelectionne;
+  String _paysSelectionne = 'Lebanon';
+  String _indicatifSelectionne = '+961';
+  String _telephoneSelectionne = '';
+
   String _objectifSelectionne = 'Perte de poids';
   String _statutSelectionne = 'Actif';
   bool _notificationsAutorisees = true;
 
-  @override
-  void initState() {
-    super.initState();
-    _paysSelectionne = _paysDisponibles.first;
+  bool get _objectifAutre {
+    return _objectifSelectionne == 'Autre';
   }
 
   @override
   void dispose() {
     _nomController.dispose();
     _emailController.dispose();
-    _telephoneController.dispose();
+    _autreObjectifController.dispose();
     super.dispose();
+  }
+
+  String _formatDialCode(String dialCode) {
+    if (dialCode.startsWith('+')) {
+      return dialCode;
+    }
+
+    return '+$dialCode';
   }
 
   void _enregistrerPatient() {
@@ -139,17 +73,30 @@ class _AjouterPatientViewState extends State<AjouterPatientView> {
       return;
     }
 
+    if (_telephoneSelectionne.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Veuillez saisir un numéro de téléphone'),
+        ),
+      );
+      return;
+    }
+
     final maintenant = DateTime.now();
+
+    final objectifFinal = _objectifAutre
+        ? _autreObjectifController.text.trim()
+        : _objectifSelectionne;
 
     final nouveauPatient = Patient(
       id: 0,
       userId: 1,
       nom: _nomController.text.trim(),
       email: _emailController.text.trim(),
-      pays: _paysSelectionne.nom,
-      indicatif: _paysSelectionne.indicatif,
-      telephone: _telephoneController.text.trim(),
-      objectifNutritionnel: _objectifSelectionne,
+      pays: _paysSelectionne,
+      indicatif: _indicatifSelectionne,
+      telephone: _telephoneSelectionne,
+      objectifNutritionnel: objectifFinal,
       statut: _statutSelectionne,
       notificationsAutorisees: _notificationsAutorisees,
       createdAt: maintenant,
@@ -179,15 +126,13 @@ class _AjouterPatientViewState extends State<AjouterPatientView> {
     return null;
   }
 
-  String? _validerTelephone(String? value) {
-    if (value == null || value.trim().isEmpty) {
-      return 'Le téléphone est obligatoire';
+  String? _validerAutreObjectif(String? value) {
+    if (!_objectifAutre) {
+      return null;
     }
 
-    final telephoneNettoye = value.replaceAll(RegExp(r'[^0-9]'), '');
-
-    if (telephoneNettoye.length < 6) {
-      return 'Numéro de téléphone invalide';
+    if (value == null || value.trim().isEmpty) {
+      return 'Veuillez préciser l’objectif nutritionnel';
     }
 
     return null;
@@ -232,38 +177,32 @@ class _AjouterPatientViewState extends State<AjouterPatientView> {
                   ),
                   const SizedBox(height: 16),
 
-                  DropdownButtonFormField<PaysTelephone>(
-                    initialValue: _paysSelectionne,
+                  IntlPhoneField(
                     decoration: const InputDecoration(
-                      labelText: 'Pays',
-                      prefixIcon: Icon(Icons.public),
+                      labelText: 'Numéro de téléphone',
+                      prefixIcon: Icon(Icons.phone),
                     ),
-                    items: _paysDisponibles.map((pays) {
-                      return DropdownMenuItem<PaysTelephone>(
-                        value: pays,
-                        child: Text('${pays.nom} (${pays.indicatif})'),
-                      );
-                    }).toList(),
-                    onChanged: (value) {
-                      if (value == null) return;
+                    initialCountryCode: 'LB',
+                    validator: (phone) {
+                      if (phone == null || phone.number.trim().isEmpty) {
+                        return 'Le téléphone est obligatoire';
+                      }
 
+                      return null;
+                    },
+                    onChanged: (phone) {
                       setState(() {
-                        _paysSelectionne = value;
+                        _telephoneSelectionne = phone.number;
+                        _indicatifSelectionne = phone.countryCode;
                       });
                     },
-                  ),
-                  const SizedBox(height: 16),
-
-                  TextFormField(
-                    controller: _telephoneController,
-                    decoration: InputDecoration(
-                      labelText: 'Numéro de téléphone',
-                      prefixIcon: const Icon(Icons.phone),
-                      prefixText: '${_paysSelectionne.indicatif} ',
-                      helperText: 'Exemple : ${_paysSelectionne.exemple}',
-                    ),
-                    keyboardType: TextInputType.phone,
-                    validator: _validerTelephone,
+                    onCountryChanged: (country) {
+                      setState(() {
+                        _paysSelectionne = country.name;
+                        _indicatifSelectionne =
+                            _formatDialCode(country.dialCode);
+                      });
+                    },
                   ),
                   const SizedBox(height: 16),
 
@@ -284,9 +223,26 @@ class _AjouterPatientViewState extends State<AjouterPatientView> {
 
                       setState(() {
                         _objectifSelectionne = value;
+
+                        if (!_objectifAutre) {
+                          _autreObjectifController.clear();
+                        }
                       });
                     },
                   ),
+
+                  if (_objectifAutre) ...[
+                    const SizedBox(height: 16),
+                    TextFormField(
+                      controller: _autreObjectifController,
+                      decoration: const InputDecoration(
+                        labelText: 'Préciser l’objectif nutritionnel',
+                        prefixIcon: Icon(Icons.edit_note),
+                      ),
+                      validator: _validerAutreObjectif,
+                    ),
+                  ],
+
                   const SizedBox(height: 16),
 
                   DropdownButtonFormField<String>(
