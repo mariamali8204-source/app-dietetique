@@ -1,4 +1,11 @@
+# Python
 backend/venv/
 backend/__pycache__/
-backend/*.pyc
+*.pyc
+
+# Database locale
+backend/*.db
+
+# Variables sensibles
+.env
 backend/.env

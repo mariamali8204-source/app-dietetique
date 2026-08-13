@@ -1,88 +1,32 @@
-from datetime import datetime
+from typing import Annotated
 
-from fastapi import FastAPI, HTTPException
-from pydantic import BaseModel
+from fastapi import Depends, FastAPI, HTTPException, status
+from sqlalchemy.orm import Session
+
+import crud
+import models
+from database import Base, engine, get_db
+from schemas import PatientCreate, PatientResponse, PatientUpdate
+
+
+Base.metadata.create_all(bind=engine)
 
 
 app = FastAPI(
     title="NutriCare Pro API",
-    version="1.0.0",
+    version="2.0.0",
 )
 
 
-# ============================================================
-# MODELE PYDANTIC
-# ============================================================
-
-class PatientCreate(BaseModel):
-    userId: int
-    nom: str
-    email: str
-    pays: str
-    indicatif: str
-    telephone: str
-    objectifNutritionnel: str
-    statut: str
-    notificationsAutorisees: bool
-
-
-# ============================================================
-# DONNEES TEMPORAIRES
-# Elles seront remplacées par la base de données plus tard.
-# ============================================================
-
-patients = [
-    {
-        "id": 1,
-        "userId": 1,
-        "nom": "Mariam Ali",
-        "email": "mariam@example.com",
-        "pays": "Liban",
-        "indicatif": "+961",
-        "telephone": "71111111",
-        "objectifNutritionnel": "Perte de poids",
-        "statut": "Actif",
-        "notificationsAutorisees": True,
-        "createdAt": "2026-07-28T10:00:00",
-        "updatedAt": "2026-07-28T10:00:00",
-    },
-    {
-        "id": 2,
-        "userId": 1,
-        "nom": "Sally Ahmad",
-        "email": "sally@example.com",
-        "pays": "Liban",
-        "indicatif": "+961",
-        "telephone": "72222222",
-        "objectifNutritionnel": "Maintien du poids",
-        "statut": "Suivi",
-        "notificationsAutorisees": True,
-        "createdAt": "2026-07-28T10:05:00",
-        "updatedAt": "2026-07-28T10:05:00",
-    },
-    {
-        "id": 3,
-        "userId": 1,
-        "nom": "Nour Hassan",
-        "email": "nour@example.com",
-        "pays": "Liban",
-        "indicatif": "+961",
-        "telephone": "73333333",
-        "objectifNutritionnel": "Prise de poids",
-        "statut": "Actif",
-        "notificationsAutorisees": False,
-        "createdAt": "2026-07-28T10:10:00",
-        "updatedAt": "2026-07-28T10:10:00",
-    },
+DbSession = Annotated[
+    Session,
+    Depends(get_db),
 ]
 
 
-next_patient_id = 4
-
-
-# ============================================================
-# GET /
-# ============================================================
+# =========================================================
+# ROOT
+# =========================================================
 
 @app.get("/")
 def root():
@@ -91,9 +35,9 @@ def root():
     }
 
 
-# ============================================================
-# GET /health
-# ============================================================
+# =========================================================
+# HEALTH
+# =========================================================
 
 @app.get("/health")
 def health():
@@ -103,105 +47,118 @@ def health():
     }
 
 
-# ============================================================
-# GET /patients
-# ============================================================
+# =========================================================
+# GET ALL PATIENTS
+# =========================================================
 
-@app.get("/patients")
-def get_patients():
-    return patients
-
-
-# ============================================================
-# GET /patients/{patient_id}
-# ============================================================
-
-@app.get("/patients/{patient_id}")
-def get_patient(patient_id: int):
-    for patient in patients:
-        if patient["id"] == patient_id:
-            return patient
-
-    raise HTTPException(
-        status_code=404,
-        detail="Patient introuvable",
+@app.get(
+    "/patients",
+    response_model=list[PatientResponse],
+)
+def get_patients(
+    db: DbSession,
+):
+    return crud.get_patients(
+        db,
     )
 
 
-# ============================================================
-# POST /patients
-# ============================================================
+# =========================================================
+# GET ONE PATIENT
+# =========================================================
 
-@app.post("/patients")
-def create_patient(patient: PatientCreate):
-    global next_patient_id
+@app.get(
+    "/patients/{patient_id}",
+    response_model=PatientResponse,
+)
+def get_patient(
+    patient_id: int,
+    db: DbSession,
+):
+    patient = crud.get_patient(
+        db,
+        patient_id,
+    )
 
-    now = datetime.now().isoformat()
+    if patient is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Patient introuvable",
+        )
 
-    new_patient = patient.model_dump()
-
-    new_patient["id"] = next_patient_id
-    new_patient["createdAt"] = now
-    new_patient["updatedAt"] = now
-
-    patients.append(new_patient)
-
-    next_patient_id += 1
-
-    return new_patient
+    return patient
 
 
-# ============================================================
-# PUT /patients/{patient_id}
-# ============================================================
+# =========================================================
+# CREATE PATIENT
+# =========================================================
 
-@app.put("/patients/{patient_id}")
+@app.post(
+    "/patients",
+    response_model=PatientResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+def create_patient(
+    patient: PatientCreate,
+    db: DbSession,
+):
+    return crud.create_patient(
+        db,
+        patient,
+    )
+
+
+# =========================================================
+# UPDATE PATIENT
+# =========================================================
+
+@app.put(
+    "/patients/{patient_id}",
+    response_model=PatientResponse,
+)
 def update_patient(
     patient_id: int,
-    patient: PatientCreate,
+    patient: PatientUpdate,
+    db: DbSession,
 ):
-    for index, existing_patient in enumerate(patients):
-
-        if existing_patient["id"] == patient_id:
-            now = datetime.now().isoformat()
-
-            updated_patient = patient.model_dump()
-
-            updated_patient["id"] = patient_id
-
-            updated_patient["createdAt"] = (
-                existing_patient["createdAt"]
-            )
-
-            updated_patient["updatedAt"] = now
-
-            patients[index] = updated_patient
-
-            return updated_patient
-
-    raise HTTPException(
-        status_code=404,
-        detail="Patient introuvable",
+    patient_updated = crud.update_patient(
+        db,
+        patient_id,
+        patient,
     )
 
+    if patient_updated is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Patient introuvable",
+        )
 
-# ============================================================
-# DELETE /patients/{patient_id}
-# ============================================================
+    return patient_updated
 
-@app.delete("/patients/{patient_id}")
-def delete_patient(patient_id: int):
-    for index, patient in enumerate(patients):
 
-        if patient["id"] == patient_id:
-            deleted_patient = patients.pop(index)
+# =========================================================
+# DELETE PATIENT
+# =========================================================
 
-            return {
-                "message": "Patient supprimé avec succès",
-                "patient": deleted_patient,
-            }
-
-    raise HTTPException(
-        status_code=404,
-        detail="Patient introuvable",
+@app.delete(
+    "/patients/{patient_id}",
+)
+def delete_patient(
+    patient_id: int,
+    db: DbSession,
+):
+    patient_deleted = crud.delete_patient(
+        db,
+        patient_id,
     )
+
+    if patient_deleted is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Patient introuvable",
+        )
+
+    return {
+        "message": "Patient supprimé avec succès",
+        "patientId": patient_id,
+    }
