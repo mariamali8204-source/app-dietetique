@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:intl_phone_field/countries.dart';
 import 'package:intl_phone_field/intl_phone_field.dart';
 
 import '../../models/patient.dart';
@@ -6,13 +7,12 @@ import '../../models/patient.dart';
 class ModifierPatientView extends StatefulWidget {
   final Patient patient;
 
-  const ModifierPatientView({
-    super.key,
-    required this.patient,
-  });
+  const ModifierPatientView({super.key, required this.patient});
 
   @override
-  State<ModifierPatientView> createState() => _ModifierPatientViewState();
+  State<ModifierPatientView> createState() {
+    return _ModifierPatientViewState();
+  }
 }
 
 class _ModifierPatientViewState extends State<ModifierPatientView> {
@@ -38,11 +38,7 @@ class _ModifierPatientViewState extends State<ModifierPatientView> {
     'Autre',
   ];
 
-  final List<String> _statuts = const [
-    'Actif',
-    'Suivi',
-    'En pause',
-  ];
+  final List<String> _statuts = const ['Actif', 'Suivi', 'En pause'];
 
   late String _paysSelectionne;
   late String _indicatifSelectionne;
@@ -51,6 +47,8 @@ class _ModifierPatientViewState extends State<ModifierPatientView> {
   late String _objectifSelectionne;
   late String _statutSelectionne;
   late bool _notificationsAutorisees;
+
+  String? _initialCountryCode;
 
   bool get _objectifAutre {
     return _objectifSelectionne == 'Autre';
@@ -61,24 +59,67 @@ class _ModifierPatientViewState extends State<ModifierPatientView> {
     super.initState();
 
     _nomController = TextEditingController(text: widget.patient.nom);
+
     _emailController = TextEditingController(text: widget.patient.email);
 
-    _paysSelectionne = widget.patient.pays;
-    _indicatifSelectionne = widget.patient.indicatif;
     _telephoneSelectionne = widget.patient.telephone;
+
+    final country = _trouverPaysPatient();
+
+    if (country != null) {
+      _paysSelectionne = country.name;
+
+      _indicatifSelectionne = '+${country.dialCode}';
+
+      _initialCountryCode = country.code;
+    } else {
+      _paysSelectionne = widget.patient.pays;
+
+      _indicatifSelectionne = widget.patient.indicatif;
+
+      _initialCountryCode = null;
+    }
 
     if (_objectifs.contains(widget.patient.objectifNutritionnel)) {
       _objectifSelectionne = widget.patient.objectifNutritionnel;
+
       _autreObjectifController = TextEditingController();
     } else {
       _objectifSelectionne = 'Autre';
+
       _autreObjectifController = TextEditingController(
         text: widget.patient.objectifNutritionnel,
       );
     }
 
     _statutSelectionne = widget.patient.statut;
+
     _notificationsAutorisees = widget.patient.notificationsAutorisees;
+  }
+
+  Country? _trouverPaysPatient() {
+    final nomPatient = widget.patient.pays.trim().toLowerCase();
+
+    final indicatifPatient = widget.patient.indicatif
+        .replaceAll('+', '')
+        .trim();
+
+    // Chercher d'abord avec le nom du pays.
+    for (final country in countries) {
+      if (country.name.trim().toLowerCase() == nomPatient) {
+        return country;
+      }
+    }
+
+    // Si le nom ne correspond pas,
+    // chercher avec l'indicatif téléphonique.
+    for (final country in countries) {
+      if (country.dialCode == indicatifPatient) {
+        return country;
+      }
+    }
+
+    return null;
   }
 
   @override
@@ -86,6 +127,7 @@ class _ModifierPatientViewState extends State<ModifierPatientView> {
     _nomController.dispose();
     _emailController.dispose();
     _autreObjectifController.dispose();
+
     super.dispose();
   }
 
@@ -104,10 +146,9 @@ class _ModifierPatientViewState extends State<ModifierPatientView> {
 
     if (_telephoneSelectionne.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Veuillez saisir un numéro de téléphone'),
-        ),
+        const SnackBar(content: Text('Veuillez saisir un numéro de téléphone')),
       );
+
       return;
     }
 
@@ -130,7 +171,7 @@ class _ModifierPatientViewState extends State<ModifierPatientView> {
       updatedAt: DateTime.now(),
     );
 
-    Navigator.pop(context, patientModifie);
+    Navigator.of(context).pop(patientModifie);
   }
 
   String? _validerNom(String? value) {
@@ -169,18 +210,23 @@ class _ModifierPatientViewState extends State<ModifierPatientView> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFF6FAF8),
+
       appBar: AppBar(
         title: const Text('Modifier le patient'),
         backgroundColor: const Color(0xFFF6FAF8),
         elevation: 0,
       ),
+
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
+
         child: Card(
           child: Padding(
             padding: const EdgeInsets.all(16),
+
             child: Form(
               key: _formKey,
+
               child: Column(
                 children: [
                   TextFormField(
@@ -191,6 +237,7 @@ class _ModifierPatientViewState extends State<ModifierPatientView> {
                     ),
                     validator: _validerNom,
                   ),
+
                   const SizedBox(height: 16),
 
                   TextFormField(
@@ -202,6 +249,7 @@ class _ModifierPatientViewState extends State<ModifierPatientView> {
                     keyboardType: TextInputType.emailAddress,
                     validator: _validerEmail,
                   ),
+
                   const SizedBox(height: 16),
 
                   IntlPhoneField(
@@ -209,8 +257,11 @@ class _ModifierPatientViewState extends State<ModifierPatientView> {
                       labelText: 'Numéro de téléphone',
                       prefixIcon: Icon(Icons.phone),
                     ),
-                    initialCountryCode: 'LB',
+
+                    initialCountryCode: _initialCountryCode,
+
                     initialValue: widget.patient.telephone,
+
                     validator: (phone) {
                       if (phone == null || phone.number.trim().isEmpty) {
                         return 'Le téléphone est obligatoire';
@@ -218,20 +269,26 @@ class _ModifierPatientViewState extends State<ModifierPatientView> {
 
                       return null;
                     },
+
                     onChanged: (phone) {
                       setState(() {
                         _telephoneSelectionne = phone.number;
+
                         _indicatifSelectionne = phone.countryCode;
                       });
                     },
+
                     onCountryChanged: (country) {
                       setState(() {
                         _paysSelectionne = country.name;
-                        _indicatifSelectionne =
-                            _formatDialCode(country.dialCode);
+
+                        _indicatifSelectionne = _formatDialCode(
+                          country.dialCode,
+                        );
                       });
                     },
                   ),
+
                   const SizedBox(height: 16),
 
                   DropdownButtonFormField<String>(
@@ -247,7 +304,9 @@ class _ModifierPatientViewState extends State<ModifierPatientView> {
                       );
                     }).toList(),
                     onChanged: (value) {
-                      if (value == null) return;
+                      if (value == null) {
+                        return;
+                      }
 
                       setState(() {
                         _objectifSelectionne = value;
@@ -261,6 +320,7 @@ class _ModifierPatientViewState extends State<ModifierPatientView> {
 
                   if (_objectifAutre) ...[
                     const SizedBox(height: 16),
+
                     TextFormField(
                       controller: _autreObjectifController,
                       decoration: const InputDecoration(
@@ -286,13 +346,16 @@ class _ModifierPatientViewState extends State<ModifierPatientView> {
                       );
                     }).toList(),
                     onChanged: (value) {
-                      if (value == null) return;
+                      if (value == null) {
+                        return;
+                      }
 
                       setState(() {
                         _statutSelectionne = value;
                       });
                     },
                   ),
+
                   const SizedBox(height: 16),
 
                   SwitchListTile(
@@ -304,6 +367,7 @@ class _ModifierPatientViewState extends State<ModifierPatientView> {
                       });
                     },
                   ),
+
                   const SizedBox(height: 24),
 
                   SizedBox(

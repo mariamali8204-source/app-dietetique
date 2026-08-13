@@ -1,126 +1,139 @@
 import 'package:flutter/material.dart';
 
 import '../../models/patient.dart';
-import '../../services/patient_service.dart';
 import 'modifier_patient_view.dart';
 
 class DossierPatientView extends StatefulWidget {
   final Patient patient;
 
-  const DossierPatientView({
-    super.key,
-    required this.patient,
-  });
+  const DossierPatientView({super.key, required this.patient});
 
   @override
-  State<DossierPatientView> createState() => _DossierPatientViewState();
+  State<DossierPatientView> createState() {
+    return _DossierPatientViewState();
+  }
 }
 
 class _DossierPatientViewState extends State<DossierPatientView> {
   late Patient _patient;
 
-  final PatientService _patientService = PatientService();
-  bool _isDeleting = false;
-
   @override
   void initState() {
     super.initState();
+
     _patient = widget.patient;
   }
 
+  // =========================================================
+  // FORMAT DATE
+  // =========================================================
+
   String _formatDate(DateTime date) {
     final jour = date.day.toString().padLeft(2, '0');
+
     final mois = date.month.toString().padLeft(2, '0');
+
     final annee = date.year.toString();
 
     return '$jour/$mois/$annee';
   }
 
+  // =========================================================
+  // COULEUR STATUT
+  // =========================================================
+
   Color _couleurStatut(String statut) {
     if (statut == 'Actif') {
       return Colors.green;
-    } else if (statut == 'Suivi') {
-      return Colors.orange;
-    } else {
-      return Colors.grey;
     }
+
+    if (statut == 'Suivi') {
+      return Colors.orange;
+    }
+
+    return Colors.grey;
   }
 
+  // =========================================================
+  // MODIFIER PATIENT
+  // =========================================================
+
   Future<void> _modifierPatient() async {
-    final patientModifie = await Navigator.push<Patient>(
-      context,
-      MaterialPageRoute(
-        builder: (context) => ModifierPatientView(
-          patient: _patient,
-        ),
+    final patientModifie = await Navigator.of(context).push<Patient>(
+      MaterialPageRoute<Patient>(
+        builder: (context) {
+          return ModifierPatientView(patient: _patient);
+        },
       ),
     );
 
-    if (!mounted) return;
-
-    if (patientModifie != null) {
-      Navigator.pop(context, patientModifie);
+    if (!mounted) {
+      return;
     }
+
+    if (patientModifie == null) {
+      return;
+    }
+
+    // La View ne fait aucun PUT.
+    // Elle retourne simplement le patient modifié.
+    Navigator.of(context).pop(patientModifie);
   }
+
+  // =========================================================
+  // CONFIRMATION SUPPRESSION
+  // =========================================================
 
   Future<void> _confirmerSuppression() async {
     final confirmation = await showDialog<bool>(
       context: context,
-      builder: (context) {
+      barrierDismissible: false,
+      builder: (dialogContext) {
         return AlertDialog(
+          icon: const Icon(Icons.warning_amber_rounded, size: 42),
           title: const Text('Supprimer le patient'),
-          content: const Text(
-            'Voulez-vous vraiment supprimer ce patient ?',
-          ),
+          content: const Text('Voulez-vous vraiment supprimer ce patient ?'),
           actions: [
             TextButton(
               onPressed: () {
-                Navigator.pop(context, false);
+                Navigator.of(dialogContext).pop(false);
               },
               child: const Text('Annuler'),
             ),
-            ElevatedButton.icon(
+            FilledButton.icon(
               onPressed: () {
-                Navigator.pop(context, true);
+                Navigator.of(dialogContext).pop(true);
               },
-              icon: const Icon(Icons.delete),
+              icon: const Icon(Icons.delete_outline),
               label: const Text('Supprimer'),
+              style: FilledButton.styleFrom(
+                backgroundColor: Colors.red,
+                foregroundColor: Colors.white,
+              ),
             ),
           ],
         );
       },
     );
 
-    if (confirmation == true) {
-      await _supprimerPatient();
+    if (!mounted) {
+      return;
     }
+
+    if (confirmation != true) {
+      return;
+    }
+
+    // IMPORTANT :
+    // Aucun appel API ici.
+    // On informe seulement PatientsView
+    // que l'utilisateur veut supprimer le patient.
+    Navigator.of(context).pop(true);
   }
 
-  Future<void> _supprimerPatient() async {
-    setState(() {
-      _isDeleting = true;
-    });
-
-    try {
-      await _patientService.deletePatient(_patient.id);
-
-      if (!mounted) return;
-
-      Navigator.pop(context, true);
-    } catch (_) {
-      if (!mounted) return;
-
-      setState(() {
-        _isDeleting = false;
-      });
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Erreur lors de la suppression du patient'),
-        ),
-      );
-    }
-  }
+  // =========================================================
+  // LIGNE INFORMATION
+  // =========================================================
 
   Widget _ligneInformation({
     required IconData icon,
@@ -132,11 +145,7 @@ class _DossierPatientViewState extends State<DossierPatientView> {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(
-            icon,
-            size: 22,
-            color: Colors.teal,
-          ),
+          Icon(icon, size: 22, color: Colors.teal),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
@@ -144,10 +153,7 @@ class _DossierPatientViewState extends State<DossierPatientView> {
               children: [
                 Text(
                   titre,
-                  style: TextStyle(
-                    color: Colors.grey.shade700,
-                    fontSize: 13,
-                  ),
+                  style: TextStyle(color: Colors.grey.shade700, fontSize: 13),
                 ),
                 const SizedBox(height: 3),
                 Text(
@@ -165,10 +171,11 @@ class _DossierPatientViewState extends State<DossierPatientView> {
     );
   }
 
-  Widget _section({
-    required String titre,
-    required List<Widget> enfants,
-  }) {
+  // =========================================================
+  // SECTION
+  // =========================================================
+
+  Widget _section({required String titre, required List<Widget> enfants}) {
     return Card(
       margin: const EdgeInsets.only(bottom: 16),
       child: Padding(
@@ -178,10 +185,7 @@ class _DossierPatientViewState extends State<DossierPatientView> {
           children: [
             Text(
               titre,
-              style: const TextStyle(
-                fontWeight: FontWeight.bold,
-                fontSize: 17,
-              ),
+              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 17),
             ),
             const SizedBox(height: 10),
             ...enfants,
@@ -191,27 +195,29 @@ class _DossierPatientViewState extends State<DossierPatientView> {
     );
   }
 
+  // =========================================================
+  // BADGE STATUT
+  // =========================================================
+
   Widget _badgeStatut() {
     final couleur = _couleurStatut(_patient.statut);
 
     return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: 12,
-        vertical: 6,
-      ),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       decoration: BoxDecoration(
         color: couleur.withValues(alpha: 0.12),
         borderRadius: BorderRadius.circular(30),
       ),
       child: Text(
         _patient.statut,
-        style: TextStyle(
-          color: couleur,
-          fontWeight: FontWeight.bold,
-        ),
+        style: TextStyle(color: couleur, fontWeight: FontWeight.bold),
       ),
     );
   }
+
+  // =========================================================
+  // ENTÊTE PATIENT
+  // =========================================================
 
   Widget _entetePatient() {
     return Card(
@@ -233,7 +239,6 @@ class _DossierPatientViewState extends State<DossierPatientView> {
               ),
             ),
             const SizedBox(width: 16),
-
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -248,9 +253,7 @@ class _DossierPatientViewState extends State<DossierPatientView> {
                   const SizedBox(height: 6),
                   Text(
                     _patient.email,
-                    style: TextStyle(
-                      color: Colors.grey.shade700,
-                    ),
+                    style: TextStyle(color: Colors.grey.shade700),
                   ),
                   const SizedBox(height: 8),
                   _badgeStatut(),
@@ -262,6 +265,10 @@ class _DossierPatientViewState extends State<DossierPatientView> {
       ),
     );
   }
+
+  // =========================================================
+  // BUILD
+  // =========================================================
 
   @override
   Widget build(BuildContext context) {
@@ -362,14 +369,19 @@ class _DossierPatientViewState extends State<DossierPatientView> {
                 label: const Text('Modifier'),
               ),
             ),
+
             const SizedBox(height: 12),
 
             SizedBox(
               width: double.infinity,
               child: OutlinedButton.icon(
-                onPressed: _isDeleting ? null : _confirmerSuppression,
+                onPressed: _confirmerSuppression,
                 icon: const Icon(Icons.delete),
-                label: Text(_isDeleting ? 'Suppression...' : 'Supprimer'),
+                label: const Text('Supprimer'),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: Colors.red,
+                  side: const BorderSide(color: Colors.red),
+                ),
               ),
             ),
           ],
