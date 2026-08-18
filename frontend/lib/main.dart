@@ -3,16 +3,36 @@ import 'package:provider/provider.dart';
 
 import 'core/routes/app_router.dart';
 import 'core/routes/app_routes.dart';
+
+import 'data/datasources/local/auth_local_data_source.dart';
+import 'data/datasources/remote/auth_remote_data_source.dart';
 import 'data/datasources/remote/health_remote_data_source.dart';
 import 'data/datasources/remote/patient_remote_data_source.dart';
+
+import 'data/repositories/auth_repository.dart';
 import 'data/repositories/health_repository.dart';
 import 'data/repositories/patient_repository.dart';
+
+import 'viewmodels/auth_view_model.dart';
 import 'viewmodels/health_view_model.dart';
 import 'viewmodels/navigation_view_model.dart';
 import 'viewmodels/patient_view_model.dart';
 
 void main() {
-  final patientRemoteDataSource = PatientRemoteDataSource();
+  WidgetsFlutterBinding.ensureInitialized();
+
+  final authRemoteDataSource = AuthRemoteDataSource();
+
+  final authLocalDataSource = AuthLocalDataSource();
+
+  final authRepository = AuthRepository(
+    remoteDataSource: authRemoteDataSource,
+    localDataSource: authLocalDataSource,
+  );
+
+  final patientRemoteDataSource = PatientRemoteDataSource(
+    authLocalDataSource: authLocalDataSource,
+  );
 
   final patientRepository = PatientRepository(
     remoteDataSource: patientRemoteDataSource,
@@ -27,13 +47,24 @@ void main() {
   runApp(
     MultiProvider(
       providers: [
+        ChangeNotifierProvider<AuthViewModel>(
+          create: (_) =>
+              AuthViewModel(repository: authRepository)..restoreSession(),
+        ),
+
         ChangeNotifierProvider<NavigationViewModel>(
           create: (_) => NavigationViewModel(),
         ),
 
         ChangeNotifierProvider<PatientViewModel>(
-          create: (_) =>
-              PatientViewModel(repository: patientRepository)..loadPatients(),
+          create: (context) {
+            final authViewModel = context.read<AuthViewModel>();
+
+            return PatientViewModel(
+              repository: patientRepository,
+              onUnauthorized: authViewModel.handleUnauthorized,
+            );
+          },
         ),
 
         ChangeNotifierProvider<HealthViewModel>(

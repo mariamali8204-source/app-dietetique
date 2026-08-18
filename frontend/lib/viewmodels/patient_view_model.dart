@@ -1,18 +1,21 @@
 import 'package:flutter/foundation.dart';
 
+import '../core/errors/unauthorized_exception.dart';
 import '../data/repositories/patient_repository.dart';
 import '../models/patient.dart';
 
+typedef UnauthorizedHandler = Future<void> Function();
+
 class PatientViewModel extends ChangeNotifier {
-  PatientViewModel({required this.repository});
+  PatientViewModel({required this.repository, required this.onUnauthorized});
 
   final PatientRepository repository;
+  final UnauthorizedHandler onUnauthorized;
 
   final List<Patient> _patients = [];
 
   bool _isLoading = false;
   bool _isSubmitting = false;
-
   String? _errorMessage;
 
   List<Patient> get patients {
@@ -38,7 +41,6 @@ class PatientViewModel extends ChangeNotifier {
   Future<void> loadPatients() async {
     _isLoading = true;
     _errorMessage = null;
-
     notifyListeners();
 
     try {
@@ -47,11 +49,14 @@ class PatientViewModel extends ChangeNotifier {
       _patients
         ..clear()
         ..addAll(patientsDepuisApi);
+    } on UnauthorizedException catch (error) {
+      _errorMessage = error.message;
+
+      await onUnauthorized();
     } catch (_) {
       _errorMessage = 'Impossible de charger les patients.';
     } finally {
       _isLoading = false;
-
       notifyListeners();
     }
   }
@@ -59,7 +64,6 @@ class PatientViewModel extends ChangeNotifier {
   Future<bool> addPatient(Patient patient) async {
     _isSubmitting = true;
     _errorMessage = null;
-
     notifyListeners();
 
     try {
@@ -68,13 +72,18 @@ class PatientViewModel extends ChangeNotifier {
       _patients.add(patientCree);
 
       return true;
+    } on UnauthorizedException catch (error) {
+      _errorMessage = error.message;
+
+      await onUnauthorized();
+
+      return false;
     } catch (_) {
       _errorMessage = 'Impossible d’ajouter le patient.';
 
       return false;
     } finally {
       _isSubmitting = false;
-
       notifyListeners();
     }
   }
@@ -82,7 +91,6 @@ class PatientViewModel extends ChangeNotifier {
   Future<bool> updatePatient(Patient patient) async {
     _isSubmitting = true;
     _errorMessage = null;
-
     notifyListeners();
 
     try {
@@ -101,13 +109,18 @@ class PatientViewModel extends ChangeNotifier {
       _patients[index] = patientMisAJour;
 
       return true;
+    } on UnauthorizedException catch (error) {
+      _errorMessage = error.message;
+
+      await onUnauthorized();
+
+      return false;
     } catch (_) {
       _errorMessage = 'Impossible de modifier le patient.';
 
       return false;
     } finally {
       _isSubmitting = false;
-
       notifyListeners();
     }
   }
@@ -115,7 +128,6 @@ class PatientViewModel extends ChangeNotifier {
   Future<bool> deletePatient(int patientId) async {
     _isSubmitting = true;
     _errorMessage = null;
-
     notifyListeners();
 
     try {
@@ -126,13 +138,18 @@ class PatientViewModel extends ChangeNotifier {
       });
 
       return true;
+    } on UnauthorizedException catch (error) {
+      _errorMessage = error.message;
+
+      await onUnauthorized();
+
+      return false;
     } catch (_) {
       _errorMessage = 'Impossible de supprimer le patient.';
 
       return false;
     } finally {
       _isSubmitting = false;
-
       notifyListeners();
     }
   }
@@ -145,6 +162,15 @@ class PatientViewModel extends ChangeNotifier {
     }
 
     return null;
+  }
+
+  void clearPatients() {
+    _patients.clear();
+    _isLoading = false;
+    _isSubmitting = false;
+    _errorMessage = null;
+
+    notifyListeners();
   }
 
   void clearError() {

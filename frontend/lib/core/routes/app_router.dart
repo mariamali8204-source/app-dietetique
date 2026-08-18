@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
 import '../../models/patient.dart';
+import '../../views/auth/auth_gate_view.dart';
+import '../../views/auth/register_view.dart';
 import '../../views/dieteticien/profil_dieteticien_view.dart';
 import '../../views/main_shell_view.dart';
 import '../../views/patient/ajouter_patient_view.dart';
@@ -16,7 +18,19 @@ class AppRouter {
     switch (settings.name) {
       case AppRoutes.home:
         return MaterialPageRoute(
+          builder: (_) => const AuthGateView(),
+          settings: settings,
+        );
+
+      case AppRoutes.main:
+        return MaterialPageRoute(
           builder: (_) => const MainShellView(),
+          settings: settings,
+        );
+
+      case AppRoutes.register:
+        return MaterialPageRoute(
+          builder: (_) => const RegisterView(),
           settings: settings,
         );
 

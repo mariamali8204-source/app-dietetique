@@ -3,29 +3,61 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:intl_phone_field/intl_phone_field.dart';
+import 'package:provider/provider.dart';
+
+import '../../viewmodels/auth_view_model.dart';
 
 class ProfilDieteticienView extends StatefulWidget {
   const ProfilDieteticienView({super.key});
 
   @override
-  State<ProfilDieteticienView> createState() => _ProfilDieteticienViewState();
+  State<ProfilDieteticienView> createState() {
+    return _ProfilDieteticienViewState();
+  }
 }
 
 class _ProfilDieteticienViewState extends State<ProfilDieteticienView> {
   final _formKey = GlobalKey<FormState>();
+
   final ImagePicker _imagePicker = ImagePicker();
 
   final TextEditingController _nomController = TextEditingController();
+
   final TextEditingController _emailController = TextEditingController();
+
   final TextEditingController _specialiteController = TextEditingController();
+
   final TextEditingController _experienceController = TextEditingController();
+
   final TextEditingController _cliniqueController = TextEditingController();
+
   final TextEditingController _historiqueController = TextEditingController();
 
   String? _imagePath;
+
   String _pays = 'Lebanon';
   String _indicatif = '+961';
   String _telephone = '';
+
+  bool _userDataLoaded = false;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+
+    if (_userDataLoaded) {
+      return;
+    }
+
+    final currentUser = context.read<AuthViewModel>().currentUser;
+
+    if (currentUser != null) {
+      _nomController.text = currentUser.nom;
+      _emailController.text = currentUser.email;
+    }
+
+    _userDataLoaded = true;
+  }
 
   @override
   void dispose() {
@@ -35,6 +67,7 @@ class _ProfilDieteticienViewState extends State<ProfilDieteticienView> {
     _experienceController.dispose();
     _cliniqueController.dispose();
     _historiqueController.dispose();
+
     super.dispose();
   }
 
@@ -42,6 +75,7 @@ class _ProfilDieteticienViewState extends State<ProfilDieteticienView> {
     if (dialCode.startsWith('+')) {
       return dialCode;
     }
+
     return '+$dialCode';
   }
 
@@ -67,24 +101,62 @@ class _ProfilDieteticienViewState extends State<ProfilDieteticienView> {
 
     if (_telephone.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Veuillez saisir un numéro de téléphone'),
-        ),
+        const SnackBar(content: Text('Veuillez saisir un numéro de téléphone')),
       );
+
       return;
     }
 
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Profil enregistré localement'),
-      ),
+      const SnackBar(content: Text('Profil enregistré localement')),
     );
+  }
+
+  Future<void> _seDeconnecter() async {
+    final confirmation = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          title: const Text('Déconnexion'),
+          content: const Text('Voulez-vous vraiment vous déconnecter ?'),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.of(dialogContext).pop(false);
+              },
+              child: const Text('Annuler'),
+            ),
+            FilledButton(
+              onPressed: () {
+                Navigator.of(dialogContext).pop(true);
+              },
+              child: const Text('Se déconnecter'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (confirmation != true || !mounted) {
+      return;
+    }
+
+    final authViewModel = context.read<AuthViewModel>();
+
+    await authViewModel.logout();
+
+    if (!mounted) {
+      return;
+    }
+
+    Navigator.of(context).popUntil((route) => route.isFirst);
   }
 
   String? _validerChampObligatoire(String? value) {
     if (value == null || value.trim().isEmpty) {
       return 'Ce champ est obligatoire';
     }
+
     return null;
   }
 
@@ -114,11 +186,7 @@ class _ProfilDieteticienViewState extends State<ProfilDieteticienView> {
           backgroundColor: Colors.teal.withValues(alpha: 0.15),
           backgroundImage: imageProvider,
           child: imageProvider == null
-              ? const Icon(
-                  Icons.person,
-                  size: 55,
-                  color: Colors.teal,
-                )
+              ? const Icon(Icons.person, size: 55, color: Colors.teal)
               : null,
         ),
         const SizedBox(height: 12),
@@ -131,10 +199,7 @@ class _ProfilDieteticienViewState extends State<ProfilDieteticienView> {
     );
   }
 
-  Widget _section({
-    required String titre,
-    required List<Widget> enfants,
-  }) {
+  Widget _section({required String titre, required List<Widget> enfants}) {
     return Card(
       margin: const EdgeInsets.only(bottom: 16),
       child: Padding(
@@ -144,10 +209,7 @@ class _ProfilDieteticienViewState extends State<ProfilDieteticienView> {
           children: [
             Text(
               titre,
-              style: const TextStyle(
-                fontSize: 17,
-                fontWeight: FontWeight.bold,
-              ),
+              style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 16),
             ...enfants,
@@ -159,6 +221,8 @@ class _ProfilDieteticienViewState extends State<ProfilDieteticienView> {
 
   @override
   Widget build(BuildContext context) {
+    final authViewModel = context.watch<AuthViewModel>();
+
     return Scaffold(
       backgroundColor: const Color(0xFFF6FAF8),
       appBar: AppBar(
@@ -174,11 +238,7 @@ class _ProfilDieteticienViewState extends State<ProfilDieteticienView> {
             children: [
               _section(
                 titre: 'Photo de profil',
-                enfants: [
-                  Center(
-                    child: _photoProfil(),
-                  ),
-                ],
+                enfants: [Center(child: _photoProfil())],
               ),
 
               _section(
@@ -192,7 +252,9 @@ class _ProfilDieteticienViewState extends State<ProfilDieteticienView> {
                     ),
                     validator: _validerChampObligatoire,
                   ),
+
                   const SizedBox(height: 16),
+
                   TextFormField(
                     controller: _emailController,
                     decoration: const InputDecoration(
@@ -202,7 +264,9 @@ class _ProfilDieteticienViewState extends State<ProfilDieteticienView> {
                     keyboardType: TextInputType.emailAddress,
                     validator: _validerEmail,
                   ),
+
                   const SizedBox(height: 16),
+
                   IntlPhoneField(
                     decoration: const InputDecoration(
                       labelText: 'Téléphone',
@@ -218,6 +282,7 @@ class _ProfilDieteticienViewState extends State<ProfilDieteticienView> {
                     onCountryChanged: (country) {
                       setState(() {
                         _pays = country.name;
+
                         _indicatif = _formatDialCode(country.dialCode);
                       });
                     },
@@ -236,7 +301,9 @@ class _ProfilDieteticienViewState extends State<ProfilDieteticienView> {
                     ),
                     validator: _validerChampObligatoire,
                   ),
+
                   const SizedBox(height: 16),
+
                   TextFormField(
                     controller: _experienceController,
                     decoration: const InputDecoration(
@@ -246,7 +313,9 @@ class _ProfilDieteticienViewState extends State<ProfilDieteticienView> {
                     keyboardType: TextInputType.number,
                     validator: _validerChampObligatoire,
                   ),
+
                   const SizedBox(height: 16),
+
                   TextFormField(
                     controller: _cliniqueController,
                     decoration: const InputDecoration(
@@ -303,6 +372,25 @@ class _ProfilDieteticienViewState extends State<ProfilDieteticienView> {
                   label: const Text('Enregistrer le profil'),
                 ),
               ),
+
+              const SizedBox(height: 12),
+
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  onPressed: authViewModel.isLoading ? null : _seDeconnecter,
+                  icon: const Icon(Icons.logout),
+                  label: authViewModel.isLoading
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Text('Se déconnecter'),
+                ),
+              ),
+
+              const SizedBox(height: 16),
             ],
           ),
         ),

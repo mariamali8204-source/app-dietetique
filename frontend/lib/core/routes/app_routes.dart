@@ -3,6 +3,10 @@ class AppRoutes {
 
   static const String home = '/';
 
+  static const String main = '/app';
+
+  static const String register = '/register';
+
   static const String patients = '/patients';
 
   static const String addPatient = '/patients/ajouter';
