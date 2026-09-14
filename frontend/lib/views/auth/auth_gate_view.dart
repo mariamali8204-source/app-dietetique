@@ -3,6 +3,9 @@ import 'package:provider/provider.dart';
 
 import '../../viewmodels/auth_view_model.dart';
 import '../../viewmodels/patient_view_model.dart';
+import '../../viewmodels/plan_nutritionnel_view_model.dart';
+import '../../viewmodels/programme_plan_view_model.dart';
+import '../../viewmodels/rendez_vous_view_model.dart';
 import '../main_shell_view.dart';
 import 'login_view.dart';
 
@@ -40,6 +43,12 @@ class _AuthGateViewState extends State<AuthGateView> {
               }
 
               context.read<PatientViewModel>().clearPatients();
+
+              context.read<PlanNutritionnelViewModel>().clearPlans();
+
+              context.read<ProgrammePlanViewModel>().clearProgramme();
+
+              context.read<RendezVousViewModel>().clearRendezVous();
             });
           }
 
@@ -54,7 +63,13 @@ class _AuthGateViewState extends State<AuthGateView> {
               return;
             }
 
+            context.read<ProgrammePlanViewModel>().clearProgramme();
+
             context.read<PatientViewModel>().loadPatients();
+
+            context.read<PlanNutritionnelViewModel>().loadPlans();
+
+            context.read<RendezVousViewModel>().loadRendezVous();
           });
         }
 

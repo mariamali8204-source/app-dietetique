@@ -17,6 +17,16 @@ class PatientsView extends StatefulWidget {
 }
 
 class _PatientsViewState extends State<PatientsView> {
+  final TextEditingController _rechercheController = TextEditingController();
+
+  String _recherche = '';
+
+  @override
+  void dispose() {
+    _rechercheController.dispose();
+    super.dispose();
+  }
+
   // =========================================================
   // ACTUALISER
   // =========================================================
@@ -159,6 +169,60 @@ class _PatientsViewState extends State<PatientsView> {
         ),
       );
     }
+  }
+
+  // =========================================================
+  // RECHERCHE
+  // =========================================================
+
+  List<Patient> _filtrerPatients(List<Patient> patients) {
+    final recherche = _recherche.trim().toLowerCase();
+
+    if (recherche.isEmpty) {
+      return patients;
+    }
+
+    return patients.where((patient) {
+      return patient.nom.toLowerCase().contains(recherche);
+    }).toList();
+  }
+
+  void _viderRecherche() {
+    _rechercheController.clear();
+
+    setState(() {
+      _recherche = '';
+    });
+  }
+
+  Widget _barreRecherche() {
+    return TextField(
+      controller: _rechercheController,
+      textInputAction: TextInputAction.search,
+      decoration: InputDecoration(
+        hintText: 'Rechercher un patient...',
+        prefixIcon: const Icon(Icons.search),
+        suffixIcon: _recherche.isEmpty
+            ? null
+            : IconButton(
+                onPressed: _viderRecherche,
+                icon: const Icon(Icons.close),
+                tooltip: 'Effacer la recherche',
+              ),
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(16)),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(16),
+          borderSide: BorderSide(color: Colors.grey.shade300),
+        ),
+        filled: true,
+        fillColor: Colors.white,
+      ),
+      onChanged: (value) {
+        setState(() {
+          _recherche = value;
+        });
+      },
+    );
   }
 
   // =========================================================
@@ -345,14 +409,38 @@ class _PatientsViewState extends State<PatientsView> {
       );
     }
 
+    final patientsFiltres = _filtrerPatients(patientViewModel.patients);
+
+    if (patientsFiltres.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.search_off_rounded, size: 56, color: Colors.grey),
+            const SizedBox(height: 12),
+            const Text(
+              'Aucun patient ne correspond à votre recherche.',
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 12),
+            TextButton.icon(
+              onPressed: _viderRecherche,
+              icon: const Icon(Icons.close),
+              label: const Text('Effacer la recherche'),
+            ),
+          ],
+        ),
+      );
+    }
+
     return RefreshIndicator(
       onRefresh: _actualiser,
       child: ListView.builder(
         physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.only(bottom: 100),
-        itemCount: patientViewModel.patients.length,
+        itemCount: patientsFiltres.length,
         itemBuilder: (context, index) {
-          final patient = patientViewModel.patients[index];
+          final patient = patientsFiltres[index];
 
           return _cartePatient(patient);
         },
@@ -415,6 +503,10 @@ class _PatientsViewState extends State<PatientsView> {
                     const SizedBox(height: 16),
 
                     _carteStatutBackend(healthViewModel),
+
+                    _barreRecherche(),
+
+                    const SizedBox(height: 16),
 
                     Expanded(child: _contenuPatients(patientViewModel)),
                   ],
